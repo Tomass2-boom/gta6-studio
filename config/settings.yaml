@@ -1,0 +1,13 @@
+review:
+  mode: manual        # manual = nothing posts without approval
+judge:
+  model: qwen3.8:27b
+  ollama_url: http://localhost:11434
+whisper:
+  model: mlx-community/whisper-large-v3-turbo
+clip:
+  pre_roll_s: 20
+  post_roll_s: 40
+  max_len_s: 60
+  min_score: 6
+  loud_z: 1.8        # lower = more candidates

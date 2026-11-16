@@ -1,0 +1,2 @@
+streamers: []   # S5 fills this: name, platform, url, tier, allowed, facecam
+blocklist: []
