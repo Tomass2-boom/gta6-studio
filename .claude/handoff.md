@@ -1,3 +1,5 @@
+# NEXT: see .claude/next-sessions.md (rehearsal, then look upgrades, full test, warm-up clips)
+
 # Handoff: S7 done (a, c); Kick chat and Tier B for Kick/YouTube not built
 
 **Done 2026-11-17 (commits b7946e3 + next):** `studio live` records Twitch, Kick and YouTube. Channels without a

@@ -342,17 +342,23 @@ These need your accounts and cannot be done by Claude:
 | Sound effects, arrows, German (M7) | Not started |
 | Analytics loop (M8) | Not started |
 
-**What is left, in order:**
-1. **Wed morning rehearsal (Sonnet 5.5), before 12:00 CET:** run `studio live` 1–2 h on live GTA 5
-   streams on all three platforms (one Kick, one YouTube, two Twitch). Done when each platform makes
-   at least one real clip from a real (not injected) trigger, and the loudness thresholds are tuned.
-   Also test `studio vod` on one Twitch VOD and one Kick VOD.
-2. **Wed 12:00 CET launch:** `uv run studio live` in the background. Add live AU/NZ names by hand.
-3. **S4 (Sonnet 5.5), Wed afternoon while live runs:** review page + posting (YouTube API test upload
-   first, Instagram, TikTok route/phone folder). Must not edit `live.py`, `ingest/`, `pipeline.py`.
-4. **S9 VOD upgrade (Sonnet 5.5), after launch day:** chat replay as a signal for Twitch VODs
-   (yt-dlp `rechat`) and YouTube stream replays (`live_chat`); download only the needed sections
-   of long VODs instead of the whole file; a `studio vod --channel` batch to clip a streamer's
-   latest replays. Done when an 8 h Twitch VOD gives 10+ good clips without a full download.
-5. **S6 (Haiku 5.5), Thursday:** open campaigns + unlock check.
-6. **S8 (Sonnet; Opus for the look):** M7 sound effects/arrows/face tracking, M8 analytics.
+**What is left, in order (updated 2026-11-17 20:20 CET, prompts in `.claude/next-sessions.md`):**
+1. **Tonight: rehearsal (Sonnet 5.5).** `studio live` on real GTA 5 streams on Kick, YouTube and Twitch;
+   each platform makes a clip from a real trigger; tune loudness/chat thresholds; test one Twitch and one
+   Kick VOD.
+2. **Tonight: S8 part 1, the look upgrades (Opus 5.5).** Sound effects, circles/arrows, face tracking, all
+   switchable in `style.yaml`. Free-licence sounds only.
+3. **Tonight: full test (Sonnet 5.5)** with the new look on, plus a launch checklist.
+4. **Tonight: warm-up clips (Sonnet 5.5)** from YouTube videos where people talk about GTA 6 launch.
+   Judge gets a "talk" mode. Posted by hand, 5-10 per account. Skip videos that are mostly trailer footage.
+5. **Wed 12:00 CET launch:** `uv run studio live` in the background.
+6. **S4 (Sonnet 5.5), Wed afternoon while live runs:** review page + posting. Must not edit `live.py`,
+   `ingest/`, `pipeline.py`.
+7. **S9 VOD upgrade (Sonnet 5.5), after launch day:** chat replay as a signal for Twitch VODs and YouTube
+   stream replays; download only the needed sections of long VODs; `studio vod --channel` batch.
+8. **S6 (Haiku 5.5), Thursday:** open campaigns + unlock check.
+9. **S8 part 2:** M8 analytics loop, German.
+
+**Risks of the warm-up clips:** cutting another YouTuber's commentary video is "reused content" on
+YouTube and can get a Content ID claim or a strike from that creator. Keep clips short, captioned and
+titled as our own hook, credit the creator in the description, and take down on request.
