@@ -134,3 +134,12 @@ def test_render_with_all_extras_on(tmp_path, monkeypatch):
     assert "video" in out and "audio" in out
     assert info["marks"]["how"] == "by hand" and len(info["marks"]["placed"]) == 1
     assert any(e["kind"] == "intro" for e in info["sfx"])
+
+
+def test_swear_words_are_masked_like_f_stars_ing():
+    from studio.render.captions import mask
+    roots = load("style")["captions"]["mask_roots"]
+    assert mask("FUCKING", roots) == "F***ING"
+    assert mask("MOTHERFUCKER", roots) == "MOTHERF***ER"
+    assert mask("SHIT!", roots) == "S***!"
+    assert mask("HELLO", roots) == "HELLO"

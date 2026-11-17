@@ -63,6 +63,8 @@ captions:
   shadow: 0
   highlight_colors: [3CFF3C, FFE600]   # key words, used in turn
   never_highlight: [fuck, fucking, fucked, motherfucker, shit, ass, bitch, damn, man, bro, oh, yeah, like]
+  mask_profanity: true    # FUCKING -> F***ING (approved 2026-11-17): first letter and ending stay
+  mask_roots: [fuck, shit, bitch, cunt, nigg, fag, dick, pussy, whore, slut]
   words_per_caption: 2
   max_chars: 14           # a caption never gets longer than this
   break_gap_s: 0.5        # a pause this long starts a new caption

@@ -57,6 +57,16 @@ def chunk_words(words: list[dict], cap: dict) -> list[dict]:
     return out
 
 
+def mask(word: str, roots: list[str]) -> str:
+    """Swear words keep their first letter and any ending: FUCKING -> F***ING, SHIT -> S***."""
+    low = word.lower()
+    for r in sorted(roots, key=len, reverse=True):
+        i = low.find(r)
+        if i >= 0 and len(r) > 1:
+            return word[: i + 1] + "*" * (len(r) - 1) + word[i + len(r):]
+    return word
+
+
 def _rounded_rect(w: float, h: float, r: float) -> str:
     r = min(r, w / 2, h / 2)
     k = r * 0.448  # bezier handle so corners look round
@@ -144,6 +154,8 @@ Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,
         parts = []
         for w in c["words"]:
             t = w["text"].upper() if cap["uppercase"] else w["text"]
+            if cap.get("mask_profanity"):
+                t = mask(t, cap.get("mask_roots", []))
             if _norm(w["text"]) in kw:
                 parts.append(f"{{\\1c{ass_color(colors[n_hl % len(colors)])}}}{t}{{\\1c{ass_color(cap['color'])}}}")
                 n_hl += 1

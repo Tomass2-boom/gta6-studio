@@ -25,6 +25,28 @@ Automated GTA 6 clip production: the pipeline watches live streams and VODs, fin
 - **Look:** approved. Plumbing sessions must not change `render/` or `style.yaml`.
 - **Talking to the user:** they write casually and by voice. Use plain English: say what works and what doesn't, how to run each step, and which session and model to run next.
 
+## S8 part 1b: the user's review of the previews (2026-11-17 ~22:30), what to build next (Opus 5.5)
+The user watched every file in `data/clips/preview/`. Verdicts:
+- **Captions, layouts, clip lengths: good.** Keep them.
+- **Profanity: DONE.** The user approved "F***ING" style. `captions.mask_profanity: true` + `mask_roots` in style.yaml; `captions.mask()`; tested.
+- **Circles/arrows: the motion-based auto is the wrong idea.** The hand-set arrow on `1_109` looked random to them. Use marks ONLY:
+  1. **As a hook at the very start:** the hook/title names a subject ("he's running...") -> circle + arrow on that subject, FOLLOWING it for the first ~2-3 s, so viewers know what to watch.
+  2. **When the speaker points something out** ("look here", "look at that", "right there", "see that guy").
+  Otherwise no marks (most clips). A zoom-in on the spot is an alternative they mentioned.
+  Idea to try: `gemma4:26b` is installed in Ollama and should take images. Give it 1-3 frames + the hook text and ask for the subject's box or "none", then follow it with an OpenCV tracker (CSRT/KCF) for the hook seconds. Drop or disable the motion-blob auto (`marks.auto`).
+- **Face tracking: unconvincing.** `fc2_off/fc2_on.mp4` were a synthetic test (xQc's webcam zoomed in and panned left-right). The user saw no face following and found it confusing. Test on REAL footage: a stream with a moving or full-screen camera. Don't show synthetic demos. The A-layout cam-box tracking barely moves (about 15 px).
+- **Sound effects:**
+  - The "what" boom (`1_721`) is "really good", but should be slightly louder (+2-3 dB).
+  - Scream hits (`22_10`, `28_30`) were NOT audible. Make them louder, use a bigger sound (`cinematic-*`, `impact-heavy-hard`) or put them in the gap after the scream.
+  - **Use MORE effects, editor-style, but in the right places:**
+    - a whoosh at the start and at cuts;
+    - a riser building tension that ends on the payoff (the main spike or loudest moment);
+    - a boom or hit on the payoff;
+    - other standard Shorts sounds.
+  - Research how GTA Shorts use them. Options: web guides, or download 3-5 top GTA 5/6 Shorts and analyse their audio for SFX onsets (no watching video). The user can also send example Shorts. More CC0 sounds from wyzowl/sfx-kit (risers, reverse whooshes, medium whooshes, cinematic hits) go into `assets/sfx/` + `sounds.yaml` + LICENCES.md.
+- **Next test = 5-10 NEW clips from a NEW source** (a GTA 5 YouTube video or a live stream now), NOT the old xQc/rehearsal clips. Each shows captions + effects, and marks/tracking only where they belong. Write them to `data/clips/preview2/` (never `data/clips/`, never touch the DB rows of old clips). The user reviews and says which work.
+- All S8 switches stay off in `style.yaml` until the user approves that new batch. Profanity masking is the exception: it is ON.
+
 ## S8 part 1 (2026-11-17, Opus 5.5): look upgrades, all OFF until the user approves
 Switches in `config/style.yaml` (all `enabled: false`; with all off the ffmpeg command and filtergraphs are byte-identical to before, guarded by `tests/test_look_upgrades.py`):
 - **`sound_effects`** (`studio/render/sfx.py`): 10 CC0 WAVs from wyzowl/sfx-kit in `assets/sfx/` (metadata in `assets/sfx/sounds.yaml`, licence rows in `assets/LICENCES.md`). Kinds: bro_what (boom), fail (womp), laugh (pop, only written "haha/lol", Whisper drops real laughs), scream (hit as a loud burst ends). Word triggers need the voice ≥6 dB over the clip median; a lone "what" needs a 0.3 s pause around it. Max 2 per clip, 6 s apart. Mixed AFTER loudnorm (voice level unchanged, measured ±0.1 dB), then a limiter. On 9 test clips: 4 got effects. Levels are a guess: measured energy only +0.1 to +2.5 dB, so they may be too quiet. **The user must listen** to `data/clips/preview/{22_10,1_721,1_1752,28_30}.mp4`.
@@ -79,7 +101,7 @@ Switches in `config/style.yaml` (all `enabled: false`; with all off the ffmpeg c
 - **Don't run `studio vod` while `studio live` runs:** `db.connect()` has no WAL/busy_timeout, and both use the GPU.
 
 ## Next steps
-1. ~~S8 part 1~~ DONE (see the block above). Before the full test, the user decides: which switches to turn on (`sound_effects.enabled`, `marks.enabled`, `face_track.enabled`), whether the effect levels sound right, and whether to mask profanity.
+1. ~~S8 part 1~~ DONE (see the block above). Next: **S8 part 1b (Opus 5.5)**, see its block above. Then the full test.
    - Sound effects, circles/arrows, face tracking, all switchable in `style.yaml`. Free-licence sounds only, listed in `assets/LICENCES.md`.
    - Also fix:
      - (a) Clip 53 (`22_10.mp4`, OpTic multi-POV overlay): a large empty black band on top. The facecam/layout B misread the overlay.
