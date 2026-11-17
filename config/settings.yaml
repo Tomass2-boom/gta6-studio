@@ -10,7 +10,11 @@ whisper:
   language: en
   pad_s: 2.0                      # extra audio each side so edge words are heard whole
   condition_on_previous_text: false  # true makes Whisper repeat itself in noisy parts
-  hallucination_silence_s: 2.0    # skip silent stretches where Whisper invents words
+  # Example text in the style we want: makes Whisper write screams/laughs instead of skipping them.
+  initial_prompt: "AAAAAH! Oh my god! NOOO! Hahaha, bro what?! AHHH!"
+  retries: 2                      # re-run when Whisper falls back (screams); keep the fullest run
+  max_word_chars: 10              # cut 'AHHHHHHH...' to this length
+  hallucination_silence_s: null   # off: it also drops screams (2.0 lost the AAAAAH in clip 1873)
 clip:
   pre_roll_s: 20
   post_roll_s: 40

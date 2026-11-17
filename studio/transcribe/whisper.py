@@ -9,9 +9,10 @@ def _norm(w: str) -> str:
     return re.sub(r"[^a-z0-9']", "", w.lower())
 
 
-def drop_loops(words: list[dict], min_n: int = 3, min_repeats: int = 3) -> list[dict]:
+def drop_loops(words: list[dict], min_n: int = 3, min_repeats: int = 5) -> list[dict]:
     """Whisper sometimes hallucinates the same phrase over and over in music/noise.
-    Drop a phrase of >= min_n words that repeats >= min_repeats times in a row (keep the first)."""
+    Drop a phrase of >= min_n words that repeats >= min_repeats times in a row (keep the first).
+    Real speech repeats 3-4 times ("he just fell, he just fell"), so the bar is 5."""
     w = list(words)
     changed = True
     while changed:
@@ -30,25 +31,41 @@ def drop_loops(words: list[dict], min_n: int = 3, min_repeats: int = 3) -> list[
     return w
 
 
+def _once(wav: str, cfg: dict, a: float) -> tuple[list, list, bool]:
+    import mlx_whisper
+    r = mlx_whisper.transcribe(wav, path_or_hf_repo=cfg["model"], word_timestamps=True, language=cfg["language"],
+                               condition_on_previous_text=cfg.get("condition_on_previous_text", False),
+                               hallucination_silence_threshold=cfg.get("hallucination_silence_s"),
+                               initial_prompt=cfg.get("initial_prompt"))
+    mx = cfg.get("max_word_chars", 10)  # "AHHHHHHHH..." can come out hundreds of letters long
+    segs = [{"start": round(s["start"] + a, 2), "end": round(s["end"] + a, 2), "text": s["text"].strip()}
+            for s in r["segments"]]
+    words = [{"word": w["word"].strip()[:mx], "start": round(w["start"] + a, 2), "end": round(w["end"] + a, 2),
+              "p": round(float(w.get("probability", 1.0)), 3)}
+             for s in r["segments"] for w in s.get("words", []) if w["word"].strip()]
+    fell_back = any(s.get("temperature", 0) > 0 for s in r["segments"])
+    return segs, drop_loops(words), fell_back
+
+
 def transcribe(video: str, start: float, end: float) -> dict:
     """Transcribe [start,end] of a video. Returns {'text', 'segments':[{start,end,text}],
-    'words':[{word,start,end,p}]} with times relative to the full video."""
-    import mlx_whisper
+    'words':[{word,start,end,p}]} with times relative to the full video.
+    Screams and noise make Whisper fall back to random sampling, which sometimes skips whole
+    stretches; then it runs again (up to `retries`) and keeps the run with the most words."""
     cfg = load("settings")["whisper"]
     pad = cfg.get("pad_s", 2.0)  # context so words at the edges are heard whole
     a = max(0.0, start - pad)
     with tempfile.TemporaryDirectory() as d:
-        wav = Path(d) / "a.wav"
+        wav = str(Path(d) / "a.wav")
         subprocess.run(["ffmpeg", "-v", "error", "-ss", str(a), "-t", str(end + pad - a), "-i", video,
-                        "-vn", "-ac", "1", "-ar", "16000", str(wav)], check=True)
-        r = mlx_whisper.transcribe(str(wav), path_or_hf_repo=cfg["model"], word_timestamps=True,
-                                   language=cfg["language"],
-                                   condition_on_previous_text=cfg.get("condition_on_previous_text", False),
-                                   hallucination_silence_threshold=cfg.get("hallucination_silence_s", 2.0))
-    segs = [{"start": round(s["start"] + a, 2), "end": round(s["end"] + a, 2), "text": s["text"].strip()}
-            for s in r["segments"] if s["end"] + a > start and s["start"] + a < end]
-    words = [{"word": w["word"].strip(), "start": round(w["start"] + a, 2), "end": round(w["end"] + a, 2),
-              "p": round(float(w.get("probability", 1.0)), 3)}
-             for s in r["segments"] for w in s.get("words", []) if w["word"].strip()]
-    words = [w for w in drop_loops(words) if w["end"] > start and w["start"] < end]
+                        "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
+        best = _once(wav, cfg, a)
+        for _ in range(cfg.get("retries", 2)):
+            if not best[2]:
+                break
+            nxt = _once(wav, cfg, a)
+            if len(nxt[1]) > len(best[1]):
+                best = nxt
+    segs = [s for s in best[0] if s["end"] > start and s["start"] < end]
+    words = [w for w in best[1] if w["end"] > start and w["start"] < end]
     return {"text": " ".join(s["text"] for s in segs), "segments": segs, "words": words}

@@ -56,9 +56,9 @@ def test_render_fixture(lay, tmp_path, monkeypatch):
 
 def test_whisper_loop_is_dropped_but_normal_repeats_stay():
     from studio.transcribe.whisper import drop_loops
-    loop = [W(x, i, i + .1) for i, x in enumerate("hey I was the one. I was the one. I was the one. I was the one. bye".split())]
+    loop = [W(x, i, i + .1) for i, x in enumerate("hey I was the one. I was the one. I was the one. I was the one. I was the one. bye".split())]
     assert " ".join(w["word"] for w in drop_loops(loop)) == "hey I was the one. bye"
-    real = [W(x, i, i + .1) for i, x in enumerate("go go go oh my god oh my god".split())]
+    real = [W(x, i, i + .1) for i, x in enumerate("go go go he just fell he just fell he just fell he just fell".split())]
     assert len(drop_loops(real)) == len(real)
 
 
