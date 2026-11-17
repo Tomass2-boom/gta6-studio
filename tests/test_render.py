@@ -52,3 +52,19 @@ def test_render_fixture(lay, tmp_path, monkeypatch):
     out = subprocess.run([L.tools()[1], "-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0",
                           path], capture_output=True, text=True).stdout
     assert got == lay and "1080,1920" in out
+
+
+def test_whisper_loop_is_dropped_but_normal_repeats_stay():
+    from studio.transcribe.whisper import drop_loops
+    loop = [W(x, i, i + .1) for i, x in enumerate("hey I was the one. I was the one. I was the one. I was the one. bye".split())]
+    assert " ".join(w["word"] for w in drop_loops(loop)) == "hey I was the one. bye"
+    real = [W(x, i, i + .1) for i, x in enumerate("go go go oh my god oh my god".split())]
+    assert len(drop_loops(real)) == len(real)
+
+
+def test_layout_mix_is_stable():
+    from studio.render.vertical import _mix_pick
+    style = {"layout_mix": {"C": 0.5}}
+    picks = [_mix_pick(style, f"1_{i}") for i in range(200)]
+    assert picks == [_mix_pick(style, f"1_{i}") for i in range(200)]
+    assert 60 < picks.count("C") < 140

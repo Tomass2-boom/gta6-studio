@@ -1,5 +1,5 @@
 """Render one moment as a finished 1080x1920 clip: layout + captions + loudness."""
-import json
+import hashlib
 import os
 import subprocess
 import tempfile
@@ -8,9 +8,27 @@ from .captions import FONTS, build_ass
 from . import layout as L
 
 
-def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, force: str | None = None):
+def _mix_pick(style: dict, key: str) -> str | None:
+    """Stable pseudo-random pick from layout_mix for this clip, or None for the auto choice."""
+    u = int(hashlib.sha1(key.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF
+    acc = 0.0
+    for lay, share in (style.get("layout_mix") or {}).items():
+        acc += float(share)
+        if u < acc:
+            return str(lay).upper()
+    return None
+
+
+def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, force: str | None = None,
+                  key: str = ""):
     """Return (layout, cam_box, cam-off ranges in clip seconds, note)."""
     want = (force or style.get("layout", "auto")).upper()
+    if not force and want == "AUTO":
+        pick = _mix_pick(style, key)
+        if pick in ("B", "C"):
+            return pick, None, [], "layout_mix experiment"
+        if pick == "A":
+            want = "A" if L.facecam_box(src["streamer"], w, h) else "AUTO"
     cam = L.facecam_box(src["streamer"], w, h)
     if want in ("AUTO", "A"):
         if not cam:
@@ -32,7 +50,7 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
     style = load("style")
     out = style["output"]
     w, h = L.probe(src["path"])
-    lay, cam, off, note = choose_layout(style, src, a, b, w, h, force_layout)
+    lay, cam, off, note = choose_layout(style, src, a, b, w, h, force_layout, name)
     graph, geo = L.build_switching(style, w, h, cam, off) if off else L.build(lay, style, w, h, cam)
     clip_words = [{**x, "start": x["start"] - a, "end": x["end"] - a} for x in words
                   if x["start"] >= a - 0.05 and x["end"] <= b + 0.05]

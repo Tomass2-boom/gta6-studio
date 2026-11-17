@@ -77,12 +77,9 @@ def _check_streamer(src, lg):
     if any(name == str(x).lower() for x in s.get("blocklist", [])):
         raise typer.Exit(f"{src['streamer']} is on the blocklist; refusing.")
     known = {str(x.get("name", "")).lower(): x for x in s.get("streamers", [])}
-    if name not in known:
-        lg.warning("%s is not in streamers.yaml (allowed status unknown)", src["streamer"])
-    elif known[name].get("allowed") is None:
-        lg.warning("%s: allowed not checked yet in streamers.yaml", src["streamer"])
-    elif not known[name]["allowed"]:
-        raise typer.Exit(f"{src['streamer']} has allowed: false; refusing.")
+    # The user decides what may be posted (decided 2026-11-17); `allowed` is a note only, never blocks.
+    if name not in known or known[name].get("allowed") is not True:
+        lg.info("%s: allowed=%s (user checks before posting)", src["streamer"], known.get(name, {}).get("allowed"))
 
 
 @app.command()

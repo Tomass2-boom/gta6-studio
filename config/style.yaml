@@ -12,6 +12,12 @@ output:
 # Or force one: A (facecam top), B (gameplay only), C (16:9 middle + title box).
 layout: auto
 
+# Try other layouts on a share of clips so analytics (M8) can tell which gets more views.
+# Each entry: share of clips (0-1) rendered in that layout instead of the auto choice.
+# A is only used when the streamer has a facecam. Picked by a hash of the clip, so re-renders are stable.
+layout_mix:
+  C: 0.2
+
 layout_a:
   cam_height: 0.38        # share of the frame height the facecam takes
   cam_focus_y: 0.5        # where to crop the cam vertically if it is too tall (0 top, 1 bottom)
@@ -48,11 +54,14 @@ captions:
   outline: 10
   shadow: 0
   highlight_colors: [3CFF3C, FFE600]   # key words, used in turn
+  never_highlight: [fuck, fucking, fucked, motherfucker, shit, ass, bitch, damn, man, bro, oh, yeah, like]
   words_per_caption: 2
   max_chars: 14           # a caption never gets longer than this
   break_gap_s: 0.5        # a pause this long starts a new caption
   hold_s: 0.35            # keep a caption up this long after its last word
   min_show_s: 0.25
+  max_word_s: 0.6         # a word longer than this starts this long before its end (Whisper timing fix)
+  lead_s: 0.1             # show each caption this much before the word is spoken (feels in sync)
   pop_from: 75            # pop-in starts at this % size...
   pop_ms: 90              # ...and grows to 100 % in this many ms
   keep_punctuation: "?!"

@@ -1,11 +1,16 @@
 review:
   mode: manual        # manual = nothing posts without approval
+ingest:
+  max_height: 1080   # source quality; platforms favour 1080p
 judge:
   model: qwen3.8:27b
   ollama_url: http://localhost:11434
 whisper:
   model: mlx-community/whisper-large-v3-turbo
   language: en
+  pad_s: 2.0                      # extra audio each side so edge words are heard whole
+  condition_on_previous_text: false  # true makes Whisper repeat itself in noisy parts
+  hallucination_silence_s: 2.0    # skip silent stretches where Whisper invents words
 clip:
   pre_roll_s: 20
   post_roll_s: 40

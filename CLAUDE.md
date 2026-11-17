@@ -27,7 +27,9 @@ that section plus what it points to.
   for thresholds and posting mode.
 - **Flag copyright and platform-policy risks** before building each stage
   (PLAN.md section 7). No cutscene or story-spoiler clips. Honour the
-  `allowed` field and the blocklist in `streamers.yaml`.
+  blocklist in `streamers.yaml`. The `allowed` field is a note only: the user
+  decides which streamers' clips get posted (decided 2026-11-17), so code never
+  refuses a streamer for it.
 - **Nothing is posted publicly without the user's say-so** until they switch
   `review.mode` away from `manual`. Never use browser-automation uploaders
   unless the user explicitly chooses that.

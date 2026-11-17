@@ -1,7 +1,8 @@
 # GTA6 Studio — Plan
 
-Written 2026-11-17. GTA 6 launches **Thursday 2026-11-19, midnight US Eastern**
-(PS5 and Xbox only, no PC date). Two build days: Tuesday and Wednesday.
+Written 2026-11-17. GTA 6 launches **Thursday 2026-11-19 at midnight local
+time**, so New Zealand gets it first at **Wed Nov 18, 11:00 UTC** and the US last
+(see 4b). PS5 and Xbox only, no PC date. Build time: Tuesday and Wednesday morning.
 
 ## 1. Goal and hard constraints
 
@@ -101,7 +102,15 @@ Taken from the nine example Shorts (five of them have 12–55 million views).
 
 - **Layout A (default):** streamer facecam on top (about 35–40 % of the
   height), gameplay below. The facecam position is stored once per streamer in
-  `streamers.yaml`; unknown streamers get automatic face detection.
+  `streamers.yaml`; unknown streamers get automatic facecam detection (S2b:
+  find the cam rectangle from a still face plus its straight border; until
+  then they get layout B). Within a clip, stretches where the cam is off
+  switch to B automatically (built in S2).
+- **Layout mix:** we do not use one layout for everything. `layout_mix` in
+  `style.yaml` renders a share of clips in other layouts (start: 20 % C), the
+  layout is stored per clip, and M8 analytics shifts the mix to what gets views.
+- **Later: face tracking** (S8): for streamers who move a lot or use a
+  full-screen camera, follow the face so it stays centred in the top box.
 - **Layout B:** gameplay only, full height, for streamers without a facecam or
   for YouTube gameplay videos.
 - **Layout C:** the wide 16:9 picture in the middle with a white rounded title
@@ -123,6 +132,35 @@ Taken from the nine example Shorts (five of them have 12–55 million views).
 
 You approve the look in milestone M2 on real GTA 5 stream footage before
 anything is posted.
+
+## 4b. Launch timing: be first (checked 2026-11-17)
+
+GTA 6 unlocks at **midnight local time on Nov 19**, a rolling launch by
+country, so the first streams are hours before Europe and the US:
+
+| Region | Unlock (UTC) |
+|---|---|
+| New Zealand | **Wed Nov 18, 11:00** |
+| Australia east (Sydney/Melbourne) | Wed Nov 18, 13:00 |
+| Australia west (Perth) | Wed Nov 18, 16:00 |
+| UK | Thu Nov 19, 00:00 |
+| Central Europe | Wed Nov 18, 23:00 |
+| US/Canada (stores unlock at midnight Eastern) | Thu Nov 19, 05:00 |
+
+Xbox timing is disputed (some sources say midnight GMT everywhere), so watch
+NZ/AU PlayStation streamers first. Sources are secondary blogs quoting
+PlayStation/Rockstar support; re-check on the day (S6).
+
+What this changes:
+- **The real launch window opens Wednesday 11:00 UTC**, not Thursday. Live
+  mode (S3) and Tier B watching must run by then; the "rehearsal" becomes the
+  real thing on NZ/AU streams.
+- **S5 must list NZ/AU GTA streamers first** (Twitch, Kick, YouTube), then
+  Europe, then US, ordered by when they go live.
+- Clips posted in the 11-18 hours before the US unlock face the least
+  competition. Quality still comes first: a bad first clip does not help.
+- Story/cutscene spoilers are most sensitive in this window; the judge already
+  drops cutscene moments.
 
 ## 5. AI: what runs where
 
@@ -179,8 +217,8 @@ faster. Claude is never called by the running pipeline.
 - **Twitch ads:** recordings contain ad breaks for non-subscribers. Streamlink
   can skip them, leaving gaps; the detector ignores those windows.
 - **Kick:** chat reading is unofficial and may break.
-- **Launch-day load:** platforms and tools can fail under load. Wednesday
-  evening's rehearsal on live GTA 5 streams is the test.
+- **Launch-day load:** platforms and tools can fail under load. Wednesday morning
+  rehearsal on live GTA 5 streams is the test, then the NZ/AU launch streams.
 
 ## 8. Clipping campaigns: verdict
 
@@ -207,7 +245,7 @@ Each milestone ends with something you can see or run.
 | M3 | Live mode on Twitch: chat watcher, spike detector, Tier A recording, Tier B segment fetch | A clip is ready within 5 minutes of a live chat spike |
 | M4 | Review page | You approve/reject/retitle clips in the browser |
 | M5 | Posting: YouTube, Instagram, TikTok route, scheduler | An approved clip appears publicly on YouTube and Instagram |
-| — | **Launch rehearsal Wednesday evening** on live GTA 5 streams | Runs 2 h unattended |
+| — | **Launch rehearsal Wednesday morning** on live GTA 5 streams, then the real NZ/AU launch streams from 11:00 UTC | Runs 2 h unattended |
 | M6 | YouTube Live, then Kick | Same result as M3 on each |
 | M7 | Sound effects, click-to-place circles and arrows, German | Per feature |
 | M8 | Analytics loop: views per clip, per streamer, per signal | Weekly table that changes the streamer list |
@@ -226,6 +264,7 @@ each other's files.
 |---|---|---|---|
 | S1 | M0 + M1 | Sonnet 5.5 | Standard plumbing with well-known tools |
 | S2 | M2 | Opus 5.5 | Visual judgement and back-and-forth with you on the look |
+| S2b | Automatic facecam detection for streamers without a stored box | Sonnet 5.5 | Needed for launch-day streamers we have never seen; layout B is the fallback |
 | S3 | M3 | Sonnet 5.5 | Clear spec; live timing logic needs care, not creativity |
 | S4 | M4 + M5 | Sonnet 5.5 | Standard web page and API work. You do the account clicks |
 | S5 | Streamer list: who streams GTA 6, where, who allows clipping | Haiku 5.5 | Web lookups only |
@@ -233,8 +272,10 @@ each other's files.
 | S7 | M6 | Sonnet 5.5 | Same pattern as S3 |
 | S8 | M7 + M8 | Sonnet 5.5, Opus only for arrow placement design | |
 
-Suggested timing: **Tuesday** S1 then S2. **Wednesday** S3, S4, S5, rehearsal
-in the evening. **Thursday** run it, S6, fix what breaks.
+Suggested timing: **Tuesday** S1, S2, then S3 and S5 (NZ/AU streamers first).
+**Wednesday morning** S2b if time allows (else layout B for unknown cams), S4,
+short rehearsal; **from 11:00 UTC** run it on NZ/AU streams, then Europe
+(23:00 UTC) and the US (05:00 UTC Thursday). **Thursday** S6, fix what breaks.
 
 Come back to Fable only if the plan itself needs to change.
 

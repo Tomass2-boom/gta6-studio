@@ -1,4 +1,4 @@
-# Handoff: S2 (M2, the look) built, waiting for the user's approval of 5 clips
+# Handoff: S2 (M2, the look) done; user approved the style, asked for caption accuracy fixes (done)
 
 If the user approved: next is S3 (Sonnet 5.5): "Read PLAN.md and CLAUDE.md and .claude/handoff.md, do session S3".
 If they asked for look changes: stay on S2 (Opus 5.5); almost everything is a value in `config/style.yaml`.
@@ -30,10 +30,22 @@ also 1_1752, 1_1210 (A with switching). Checked with contact sheets only, never 
 - Automatic face detection for streamers without a facecam box (they get layout B now).
   Candidate: OpenCV YuNet (opencv-python-headless); check it works on this Python first.
 - Reaction tags (`*SECURITY*`) not built (`reaction_tags: false`); needs a reliable source of what happens.
-- Sound effects off. Source is 720p, so cam (~4x) and gameplay (~1.7x) look soft;
-  `ingest/download.py` still hard-codes <=720p (make it a setting, 1080p, if the user wants).
-- Captions carry swear words as spoken; no censor list yet.
+- Sound effects off.
+- Captions carry swear words as spoken (user did not ask for censoring); swears are never highlighted.
 - `studio render` does not re-check blocklist/allowed; S4 must re-check at post time (lists can change).
 - The `vod` path was not run end to end after the render changes (render was tested via `studio render`).
-- Changed gate: a streamer listed with `allowed: null` now warns instead of refusing (told the user).
+- User decision 2026-11-17: `allowed` is a note only, never blocks (CLAUDE.md updated). Blocklist still refuses.
 - No muted-radio option yet (PLAN §7 music risk).
+
+## After user feedback (same session)
+- Caption fix: Whisper hallucinated loops ("I was the one" x4) in noisy parts. Now
+  `condition_on_previous_text: false`, `hallucination_silence_threshold`, 2 s padding, and
+  `drop_loops()` (3+ word phrase repeated 3+ times). Words keep confidence `p`.
+  Render-time: words longer than `max_word_s` start late (DTW stretch fix), captions `lead_s` 0.1 early,
+  `never_highlight` list. All 16 xQc moments re-transcribed and re-rendered.
+- Source quality: `settings.ingest.max_height: 1080` (H.264 preferred). xQc VOD re-fetched at 1080p60;
+  old 720p copy at data/raw/wEUY9mAx0dE.720p.mp4 (can delete).
+- `layout_mix` in style.yaml (start C: 0.2), stable per clip; layout stored in `moments.layout` for M8.
+- PLAN.md: new section 4b launch timing (NZ unlock Wed Nov 18 11:00 UTC, AU east 13:00, US Thu 05:00),
+  S2b row (auto facecam detection), S8 face tracking, timing paragraph updated.
+- NEXT: S3 live mode must run before Wed 11:00 UTC; S5 must list NZ/AU streamers first.

@@ -23,6 +23,9 @@ def _norm(w: str) -> str:
 def chunk_words(words: list[dict], cap: dict) -> list[dict]:
     """Group words (clip-relative times) into captions of up to N words / max_chars."""
     keep = set(cap.get("keep_punctuation", "?!"))
+    mx = cap.get("max_word_s", 1.0)
+    # Whisper stretches a word after a pause back over the silence; the word is really said at its end.
+    words = [{**w, "start": max(w["start"], w["end"] - mx)} for w in words]
     chunks, cur = [], []
     for i, w in enumerate(words):
         txt = "".join(ch for ch in w["word"].strip() if ch.isalnum() or ch in "'-" or ch in keep)
@@ -41,11 +44,15 @@ def chunk_words(words: list[dict], cap: dict) -> list[dict]:
         chunks.append(cur)
     out = []
     for i, c in enumerate(chunks):
-        start = c[0]["start"]
+        start = max(0.0, c[0]["start"] - cap.get("lead_s", 0.0))
+        if out:
+            start = max(start, out[-1]["start"] + 0.05)
         end = c[-1]["end"] + cap["hold_s"]
         if i + 1 < len(chunks):
-            end = min(end, chunks[i + 1][0]["start"])
+            end = min(end, chunks[i + 1][0]["start"] - cap.get("lead_s", 0.0))
         end = max(end, start + cap["min_show_s"])
+        if out and out[-1]["end"] > start:
+            out[-1]["end"] = start
         out.append({"start": start, "end": end, "words": c})
     return out
 
@@ -115,7 +122,8 @@ Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,
                       f"{_rounded_rect(bw, bh, tb['radius'])}")
         events.append(f"Dialogue: 1,{ts(0)},{ts(duration)},Title,,0,0,0,,"
                       f"{{\\pos({W // 2},{by + bh / 2:.0f})\\q2}}" + "\\N".join(lines))
-    kw = {_norm(k) for k in keywords or [] if _norm(k)}
+    never = {_norm(x) for x in cap.get("never_highlight", [])}
+    kw = {_norm(p) for k in keywords or [] for p in str(k).split() if _norm(p)} - never
     colors, n_hl = cap["highlight_colors"], 0
     y = geo["caption_y"]
     pop = f"\\fscx{cap['pop_from']}\\fscy{cap['pop_from']}\\t(0,{cap['pop_ms']},\\fscx100\\fscy100)"

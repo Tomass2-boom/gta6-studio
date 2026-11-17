@@ -13,13 +13,13 @@ If keep, choose start/end snapped to sentence boundaries (15-50 s long, 60 max) 
 a hook at the start and the payoff before the end.
 Reply ONLY JSON: {{"keep": bool, "score": 1-10, "start": sec, "end": sec,
 "title": "short hook title, no clickbait lies", "hashtags": ["#gta6", ...], "reason": "one line",
-"keywords": ["up to 8 punchy words spoken in the clip to highlight in captions"]}}"""
+"keywords": ["up to 8 punchy words spoken in the clip to highlight in captions, no swear words or filler"]}}"""
 
 KW_PROMPT = """These are the words spoken in a short gameplay clip:
 {text}
 
 Pick up to {n} single words from it that carry the punch (the joke, the shock, names of key things,
-strong emotion words). Only words that appear in the text. Reply ONLY JSON: {{"keywords": ["word", ...]}}"""
+strong emotion words). Only words that appear in the text. No swear words, no filler (oh, man, bro, yeah). Reply ONLY JSON: {{"keywords": ["word", ...]}}"""
 
 
 def _ask(prompt: str, model: str | None = None) -> dict:
