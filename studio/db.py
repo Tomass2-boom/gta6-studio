@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS moments(
   id INTEGER PRIMARY KEY, source_id INTEGER REFERENCES sources(id),
   state TEXT DEFAULT 'detected', fail_reason TEXT,
   t_start REAL, t_end REAL, signals TEXT, signal_score REAL,
-  transcript TEXT, keep INTEGER, score REAL, title TEXT, hashtags TEXT,
+  transcript TEXT, keep INTEGER, score REAL, reason TEXT, title TEXT, hashtags TEXT,
   j_start REAL, j_end REAL, judge_model TEXT, clip_path TEXT,
   created TEXT DEFAULT CURRENT_TIMESTAMP, updated TEXT DEFAULT CURRENT_TIMESTAMP);
 """
@@ -22,6 +22,9 @@ def connect() -> sqlite3.Connection:
     con = sqlite3.connect(DATA / "studio.db")
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    cols = {r[1] for r in con.execute("PRAGMA table_info(moments)")}
+    if "reason" not in cols:
+        con.execute("ALTER TABLE moments ADD COLUMN reason TEXT")
     return con
 
 

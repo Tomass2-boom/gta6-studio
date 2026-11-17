@@ -23,4 +23,5 @@ def main(models):
         print(f"== {m}: {time.time()-t0:.0f}s, valid {ok}/{len(rows)}, kept {keep}, bad {bad}\n")
 
 
-main(sys.argv[1:])
+if __name__ == "__main__":
+    main(sys.argv[1:])

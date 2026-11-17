@@ -1,6 +1,7 @@
 import json
 import logging
 import shutil
+from pathlib import Path
 from datetime import date
 
 import requests
@@ -51,6 +52,27 @@ def doctor():
     raise typer.Exit(0 if ok else 1)
 
 
+def _clamp(a, b, lo, hi, c):
+    """Keep the judge's cut inside the candidate window; respect max length; extend a too-short cut."""
+    a, b = max(lo, a), min(hi, b)
+    if b - a < c["min_len_s"]:
+        b = min(hi, a + c["min_len_s"])
+        a = max(lo, b - c["min_len_s"])
+    return a, min(b, a + c["max_len_s"])
+
+
+def _check_streamer(src, lg):
+    s = load("streamers")
+    name = (src["streamer"] or "").lower()
+    if any(name == str(x).lower() for x in s.get("blocklist", [])):
+        raise typer.Exit(f"{src['streamer']} is on the blocklist; refusing.")
+    known = {str(x.get("name", "")).lower(): x for x in s.get("streamers", [])}
+    if name not in known:
+        lg.warning("%s is not in streamers.yaml (allowed status unknown)", src["streamer"])
+    elif not known[name].get("allowed", False):
+        raise typer.Exit(f"{src['streamer']} has allowed: false; refusing.")
+
+
 @app.command()
 def vod(url: str, top: int = typer.Option(15, help="Max candidate moments to judge"),
         model: str = typer.Option(None, help="Override judge model")):
@@ -63,22 +85,23 @@ def vod(url: str, top: int = typer.Option(15, help="Max candidate moments to jud
 
     cfg, lg, con = load("settings"), log("vod"), db.connect()
     src = con.execute("SELECT * FROM sources WHERE url=?", (url,)).fetchone()
-    heat = []
     if not src or not src["path"] or not __import__("os").path.exists(src["path"]):
         lg.info("downloading %s", url)
         v = fetch_video(url)
-        heat = v["heatmap"]
         con.execute("INSERT OR REPLACE INTO sources(url,platform,streamer,title,path,duration) VALUES(?,?,?,?,?,?)",
                     (url, v["platform"], v["streamer"], v["title"], v["path"], v["duration"]))
         con.commit()
         src = con.execute("SELECT * FROM sources WHERE url=?", (url,)).fetchone()
     sid = src["id"]
+    _check_streamer(src, lg)
+    info = Path(src["path"]).with_suffix(".info.json")
+    heat = json.loads(info.read_text()).get("heatmap") or [] if info.exists() else []
     if not con.execute("SELECT 1 FROM moments WHERE source_id=?", (sid,)).fetchone():
         lg.info("detecting signals")
-        peaks = {"loudness": signals.loud_peaks(signals.loudness_per_second(src["path"]), z=cfg["clip"]["loud_z"]),
-                 "most_replayed": signals.heatmap_peaks(heat)}
         c = cfg["clip"]
-        for w in signals.candidates(peaks, src["duration"], c["pre_roll_s"], c["post_roll_s"]):
+        peaks = {"loudness": signals.loud_peaks(signals.loudness_per_second(src["path"]), z=cfg["clip"]["loud_z"]),
+                 "most_replayed": signals.heatmap_peaks(heat, c["heatmap_min"])}
+        for w in signals.candidates(peaks, src["duration"], c["pre_roll_s"], c["post_roll_s"], c["merge_gap_s"], c["max_window_s"]):
             con.execute("INSERT INTO moments(source_id,t_start,t_end,signals,signal_score) VALUES(?,?,?,?,?)",
                         (sid, w["t_start"], w["t_end"], json.dumps(w["signals"]), w["signal_score"]))
         con.commit()
@@ -95,11 +118,15 @@ def vod(url: str, top: int = typer.Option(15, help="Max candidate moments to jud
                 continue
             j = judge(tr["segments"], model)
             db.update(con, mid, state="judged", keep=int(bool(j.get("keep"))), score=j.get("score"),
-                      title=j.get("title"), hashtags=" ".join(j.get("hashtags", [])),
+                      reason=j.get("reason"), title=j.get("title"), hashtags=" ".join(j.get("hashtags", [])),
                       j_start=j["start"], j_end=j["end"], judge_model=model or cfg["judge"]["model"])
             if j.get("keep") and (j.get("score") or 0) >= cfg["clip"]["min_score"]:
-                path = plain_cut(src["path"], j["start"], min(j["end"], j["start"] + cfg["clip"]["max_len_s"]),
-                                 f"{sid}_{mid}")
+                a, b = _clamp(j["start"], j["end"], m["t_start"], m["t_end"], cfg["clip"])
+                if b - a < cfg["clip"]["min_len_s"]:
+                    db.fail(con, mid, f"clip too short after clamping ({b - a:.0f}s)")
+                    continue
+                db.update(con, mid, j_start=a, j_end=b)
+                path = plain_cut(src["path"], a, b, f"{sid}_{int(a)}")
                 db.update(con, mid, state="rendered", clip_path=path)
                 lg.info("moment %d kept (%s) %s", mid, j.get("score"), j.get("title"))
             else:

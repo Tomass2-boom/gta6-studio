@@ -32,13 +32,13 @@ def heatmap_peaks(heatmap, thresh: float = 0.6):
             for h in heatmap if h["value"] >= thresh]
 
 
-def candidates(peaks: dict, duration: float, pre=20, post=40, merge_gap=30):
+def candidates(peaks: dict, duration: float, pre=20, post=40, merge_gap=30, max_window=90):
     """peaks: {signal_name: [(t, strength)]}. Cut windows around each, merge overlaps."""
     ev = sorted((t, name, s) for name, lst in peaks.items() for t, s in lst)
     wins = []
     for t, name, s in ev:
         a, b = max(0, t - pre), min(duration, t + post)
-        if wins and a <= wins[-1]["t_end"] + merge_gap - pre:
+        if wins and a <= wins[-1]["t_end"] + merge_gap - pre and b - wins[-1]["t_start"] <= max_window:
             w = wins[-1]
             w["t_end"] = max(w["t_end"], b)
             w["signals"][name] = max(w["signals"].get(name, 0), s)

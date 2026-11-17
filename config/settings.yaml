@@ -5,9 +5,14 @@ judge:
   ollama_url: http://localhost:11434
 whisper:
   model: mlx-community/whisper-large-v3-turbo
+  language: en
 clip:
   pre_roll_s: 20
   post_roll_s: 40
   max_len_s: 60
   min_score: 6
   loud_z: 1.8        # lower = more candidates
+  max_window_s: 90   # cap on a merged candidate window
+  min_len_s: 15
+  heatmap_min: 0.6
+  merge_gap_s: 30
