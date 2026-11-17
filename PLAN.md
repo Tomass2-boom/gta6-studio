@@ -325,3 +325,34 @@ These need your accounts and cannot be done by Claude:
 | Claude | Existing Pro plan |
 | Electricity, Mac running all day | a few euros |
 | Disk | Raw recordings auto-delete after 24 h; finished clips about 5–10 MB each |
+
+## 13. Status and what is left (checked 2026-11-17 20:10 CET)
+
+**Built and committed:** M0, M1, M2, M3, M6 (Kick + YouTube live), S2b, S5 (thin).
+26 tests pass, `studio doctor` all green.
+
+| Part | State |
+|---|---|
+| VOD mode (`studio vod <url>`) | Works. Tested on one YouTube VOD (xQc, 16 clips approved). Signals: loudness + YouTube "most replayed". Twitch/Kick VODs download via yt-dlp but are **untested**, and have no heatmap, so they get loudness only |
+| Live mode, Twitch | Works: chat spikes, Tier A record, Tier B rewind. Rehearsed with fake spikes only |
+| Live mode, Kick / YouTube | Records + chat readers built. **Loudness trigger never fired on real GTA audio**; thresholds untuned. Tier B for Kick/YouTube not built (they record as Tier A) |
+| Review page (`studio review`) | **Stub** (M4) |
+| Posting (`studio post`) | **Stub** (M5). Day 1 = post by hand from `data/clips/` |
+| Streamer list | 5 names; AU/NZ list is thin (only DarkViperAU) |
+| Sound effects, arrows, German (M7) | Not started |
+| Analytics loop (M8) | Not started |
+
+**What is left, in order:**
+1. **Wed morning rehearsal (Sonnet 5.5), before 12:00 CET:** run `studio live` 1–2 h on live GTA 5
+   streams on all three platforms (one Kick, one YouTube, two Twitch). Done when each platform makes
+   at least one real clip from a real (not injected) trigger, and the loudness thresholds are tuned.
+   Also test `studio vod` on one Twitch VOD and one Kick VOD.
+2. **Wed 12:00 CET launch:** `uv run studio live` in the background. Add live AU/NZ names by hand.
+3. **S4 (Sonnet 5.5), Wed afternoon while live runs:** review page + posting (YouTube API test upload
+   first, Instagram, TikTok route/phone folder). Must not edit `live.py`, `ingest/`, `pipeline.py`.
+4. **S9 VOD upgrade (Sonnet 5.5), after launch day:** chat replay as a signal for Twitch VODs
+   (yt-dlp `rechat`) and YouTube stream replays (`live_chat`); download only the needed sections
+   of long VODs instead of the whole file; a `studio vod --channel` batch to clip a streamer's
+   latest replays. Done when an 8 h Twitch VOD gives 10+ good clips without a full download.
+5. **S6 (Haiku 5.5), Thursday:** open campaigns + unlock check.
+6. **S8 (Sonnet; Opus for the look):** M7 sound effects/arrows/face tracking, M8 analytics.
