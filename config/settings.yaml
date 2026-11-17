@@ -39,7 +39,7 @@ live:
     warmup_bins: 12       # no spikes in the first 2 minutes of watching a channel
     baseline_bins: 60     # baseline = median of the last 10 minutes
     repeat_cap: 3         # copy-paste spam: the same message (first words) counts at most this often per bin
-    repeat_min_words: 3   # only messages of this many words or more; "LOL" x50 is real hype and is never capped
+    repeat_min_words: 3   # only messages of this many words or more; "LOL" x50 and "KEKW KEKW KEKW" x50 are real hype, never capped
     hype_weight: 3        # LOL / W / OMG / clip it / laugh emotes count this much, other messages 1
     hype_words: [lol, lmao, lmfao, kekw, omegalul, lul, w, ww, www, omg, pog, poggers, pogchamp, clip, "clip it", "clip that", wtf, "no", nooo, rip, dead, "😂", "💀", icant, "?!"]
   loud_trigger: no_chat   # loudness trigger on the live recording: no_chat (only channels without a chat reader) | always | off

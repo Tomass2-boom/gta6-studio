@@ -14,7 +14,7 @@
 Spike to finished clip: mean 43 s (one worker, so about 80 moments an hour in total).
 
 **Fixed (live/ingest/detect/chat/settings only):**
-- Copy-paste raid: deansocool chat pasted "fuck your mod <emote>" about 60 times, which gave a 38x "spike". Fix: `live.chat.repeat_cap: 3` / `repeat_min_words: 3`. A message of 3+ words with the same first words counts at most 3 times per bin; "LOL" x50 is still counted in full. Test: `tests/fixtures/chat_raid.jsonl`.
+- Copy-paste raid: deansocool chat pasted "fuck your mod <emote>" about 60 times, which gave a 38x "spike". Fix: `live.chat.repeat_cap: 3` / `repeat_min_words: 3`. A message of 3+ words with the same first words counts at most 3 times per bin. Never capped: "LOL" x50, and emote spam where the first words are one repeated token or all hype words ("KEKW KEKW KEKW", which is the real spike in big launch chats). Test: `tests/fixtures/chat_raid.jsonl`.
 - Kick chunk "holes" were false. Kick delivers in bursts, so chunk names lag the content by up to 30 s and then catch up (799 s of content in 798 s wall time). The old 13 s gap rule threw away good Kick moments ("only 10s of unbroken video").
   - Fix: `ingest/live.chunk_len()` (ffprobe audio packets) + `contiguous_run(lengths=)`. A hole is now a lag that stays up, not one that recovers.
   - Setting: `live.hole_s: {kick: 10}`. Twitch and YouTube keep the fixed 10 s grid.
@@ -28,11 +28,14 @@ Spike to finished clip: mean 43 s (one worker, so about 80 moments an hour in to
 - Loud: `z` is the knob that binds, not `min_ratio` (real bursts are 3.5-6x). z 4.0 kept, `cooldown_s` 20 -> 90: Kick 9/h, YouTube 4/h. z 4.5 lost a kept clip. Chat reacted to only about 1 in 4 loud fires, so loud is the noisier trigger.
 - The replay script is not in the repo (scratchpad). Rebuild it if needed: feed `data/chat/*.jsonl` and `data/raw/live/<chan>/*.ts` loudness into `ChatDetector` / `LoudDetector` and count fires per hour after the first 10 min.
 
-**VOD test:** Twitch v2931512553 (34 min RP) and Kick ramee c4702eba (17 min RP) download and run end to end. 0 clips: loudness alone picks chatter on RP streams. S9 (chat replay as a signal) is the fix.
+**VOD test:** Twitch v2931512553 (34 min RP) and Kick ramee c4702eba (17 min RP) download and run end to end (`--top 6` each, 12 judged). 0 clips: loudness alone picks chatter on RP streams. S9 (chat replay as a signal) is the fix.
 
 **Not done / for other sessions:**
 - Judge drops most RP moments ("no gameplay action"). Good for action clips; RP-heavy streamers will give few clips. Judge prompt is outside this session's area.
 - Render (look session): clip 53 (OpTic multi-POV overlay) has a big empty black band on top with a small facecam+game strip. Facecam/layout B misread the overlay. Clip 59 caption shows "FUCKING" uncensored (platform risk?).
+- Kick runs both triggers (`CHAT_READERS` is still {"twitch"}): on ramee chat + loud is about 17 fires/h, above the 6-10/h per-channel budget. If the worker queue backs up at launch, add `kick` to `CHAT_READERS` (chat only) or set `loud_trigger`. Not changed: the user decides.
+- Tonight's streams had hundreds to a few thousand viewers. Ratios carry over; at launch scale `burst_x` binds, not `min_burst`.
+- The Kick/YouTube clips came from the pre-tuning run; the replay confirms the tuned settings still catch moments 36, 45 and 53. The tuned live run was short (it made the Twitch clip).
 - `db.connect()` has no WAL/busy_timeout. Don't run `studio vod` while `studio live` runs.
 - Kick/YouTube Tier B still not built (recorded as A).
 

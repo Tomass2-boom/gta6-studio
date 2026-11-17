@@ -96,3 +96,14 @@ def test_kick_burst_names_are_not_holes_but_real_holes_are():
     starts2 = starts[:5] + [s + 40 for s in starts[5:]]  # a real 40 s hole after chunk 4
     assert contiguous_run(starts2, 90, 10, 5, lens) == (5, 8)
     assert contiguous_run(starts2, 20, 10, 5, lens) == (0, 5)
+
+
+def test_emote_spam_is_not_capped():
+    """Big launch chats spam 'OMEGALUL OMEGALUL OMEGALUL': that is the spike, it must still fire."""
+    t0 = 1794936000
+    rows = [{"t": t0 + i * 5, "m": "hi there"} for i in range(150)]
+    rows += [{"t": t0 + 751 + i / 10, "m": "OMEGALUL OMEGALUL OMEGALUL"} for i in range(60)]
+    rows += [{"t": t0 + 757 + i / 10, "m": "KEKW W LOL"} for i in range(20)]
+    rows = sorted(rows, key=lambda r: r["t"])
+    sp = [s for s in run(rows) if t0 + 750 <= s.t <= t0 + 780]
+    assert sp and max(s.burst for s in sp) > 100   # capped it would weigh ~18 (3 x 3 + 3 x 3)

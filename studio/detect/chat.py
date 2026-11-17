@@ -5,7 +5,8 @@ Each channel has its own baseline: messages (weighted) per 10 s bin. A spike nee
 Hype messages (LOL, W, OMG, clip it, laugh emotes) weigh more than plain chatter.
 Copy-paste spam (a raid pasting the same sentence 60 times, seen 2026-11-17) is capped: a message of
 repeat_min_words+ words with the same first words counts at most repeat_cap times per bin. Short hype
-("LOL", "KEKW") is never capped: many people typing it is the signal.
+("LOL") and emote spam (one token repeated, "KEKW KEKW KEKW", or only hype words) are never capped: many
+people typing it is the signal.
 """
 import re
 import statistics
@@ -51,6 +52,7 @@ class ChatDetector:
     def __init__(self, cfg: dict):
         self.c = cfg
         self.weigh = make_weigher(cfg["hype_words"], cfg["hype_weight"])
+        self.hype_singles = {str(w).lower() for w in cfg["hype_words"] if " " not in str(w)}
         self.ch: dict[str, _Chan] = {}
 
     def feed(self, channel: str, ts: float, text: str) -> list[Spike]:
@@ -60,9 +62,11 @@ class ChatDetector:
             st.first_idx = i
             st.done_idx = i - 1
         w, hype = self.weigh(text)
-        words = re.findall(r"\w+", text.lower())
-        if len(words) >= self.c.get("repeat_min_words", 3):
-            key = (i, " ".join(words[:self.c.get("repeat_min_words", 3)]))
+        n = self.c.get("repeat_min_words", 3)
+        words = re.findall(r"\w+", text.lower())[:n]
+        # emote spam ("KEKW KEKW KEKW", "W W W") is crowd hype, not a paste: only capped when the words differ
+        if len(words) >= n and len(set(words)) > 1 and not set(words) <= self.hype_singles:
+            key = (i, " ".join(words))
             st.reps[key] = st.reps.get(key, 0) + 1
             if st.reps[key] > self.c.get("repeat_cap", 3):
                 return self.tick(ts, channel)
