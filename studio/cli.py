@@ -91,7 +91,7 @@ def vod(url: str, top: int = typer.Option(15, help="Max candidate moments to jud
     """VOD mode: link in -> scored moments -> plain cut clips."""
     from .detect import signals
     from .ingest.download import fetch_video
-    from .judge.llm import judge
+    from .judge.llm import as_list, judge
     from .transcribe.whisper import transcribe
 
     cfg, lg, con = load("settings"), log("vod"), db.connect()
@@ -131,7 +131,7 @@ def vod(url: str, top: int = typer.Option(15, help="Max candidate moments to jud
             db.update(con, mid, state="judged", keep=int(bool(j.get("keep"))), score=j.get("score"),
                       reason=j.get("reason"), title=j.get("title"), hashtags=" ".join(j.get("hashtags", [])),
                       j_start=j["start"], j_end=j["end"], judge_model=model or cfg["judge"]["model"],
-                      keywords=[str(k) for k in j.get("keywords", [])])
+                      keywords=as_list(j.get("keywords")))
             if j.get("keep") and (j.get("score") or 0) >= cfg["clip"]["min_score"]:
                 a, b = _clamp(j["start"], j["end"], m["t_start"], m["t_end"], cfg["clip"])
                 if b - a < cfg["clip"]["min_len_s"]:

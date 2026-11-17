@@ -35,11 +35,18 @@ def _ask(prompt: str, model: str | None = None) -> dict:
     return json.loads(m.group(0))
 
 
+def as_list(v) -> list[str]:
+    """Model may return a list or a comma-separated string."""
+    if isinstance(v, str):
+        v = re.split(r"[,;]\s*", v)
+    return [str(k).strip() for k in (v or []) if str(k).strip()]
+
+
 def keywords(text: str, n: int = 8, model: str | None = None) -> list[str]:
     """Words to highlight in captions, for moments judged before keywords existed."""
     for i in range(3):
         try:
-            return [str(k) for k in _ask(KW_PROMPT.format(text=text, n=n), model).get("keywords", [])][:n]
+            return as_list(_ask(KW_PROMPT.format(text=text, n=n), model).get("keywords"))[:n]
         except (ValueError, KeyError):
             if i == 2:
                 return []

@@ -33,3 +33,7 @@ also 1_1752, 1_1210 (A with switching). Checked with contact sheets only, never 
 - Sound effects off. Source is 720p, so cam (~4x) and gameplay (~1.7x) look soft;
   `ingest/download.py` still hard-codes <=720p (make it a setting, 1080p, if the user wants).
 - Captions carry swear words as spoken; no censor list yet.
+- `studio render` does not re-check blocklist/allowed; S4 must re-check at post time (lists can change).
+- The `vod` path was not run end to end after the render changes (render was tested via `studio render`).
+- Changed gate: a streamer listed with `allowed: null` now warns instead of refusing (told the user).
+- No muted-radio option yet (PLAN §7 music risk).
