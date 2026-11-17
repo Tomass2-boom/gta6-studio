@@ -3,9 +3,39 @@
 # allowed: a note for the user (true / false / null = unknown). It never blocks; the user decides
 # what gets posted. blocklist: streamers we never clip (e.g. after a takedown request).
 # facecam: [x, y, w, h] box in pixels of a frame of size ref [width, height].
+# Launch prep 2026-11-17: entries below are ordered by when they are expected to go live.
+# "reported" = seen in news/social posts, not confirmed by the streamer. S5 verifies slugs and adds AU/NZ names.
+# Until S7 lands, live mode only follows platform: twitch; kick/youtube entries are skipped with a warning.
 streamers:
+  # --- NZ window, Wed Nov 18 11:00 UTC (12:00 CET) ---
+  - name: N3on
+    platform: kick
+    channel: n3on
+    tier: A
+    allowed: null
+    note: "user's top priority; said he will stream from New Zealand (not confirmed in news)"
+  - name: Adin Ross
+    platform: kick
+    channel: adinross
+    tier: A
+    allowed: null
+    note: "Kick; no confirmed NZ plan"
+  - name: Kai Cenat
+    platform: twitch
+    channel: kaicenat
+    tier: B
+    allowed: null
+    note: "NZ trip is a rumour (one YouTube Short); reported GTA III-V marathon before launch. Twitch warned about the NZ trick"
+  # --- Europe / US window ---
+  - name: IShowSpeed
+    platform: youtube
+    channel: IShowSpeed
+    tier: A
+    allowed: null
+    note: "announced GTA VI stream 9 PM ET Nov 18 = Thu 02:00 UTC (03:00 CET); NZ trip reported but unconfirmed; ~12 h daily streams"
   - name: xQc
     platform: youtube
+    live: false   # VOD test source only (S7: skip entries with live: false)
     allowed: null
     facecam: [0, 0, 250, 188]
     ref: [1280, 720]

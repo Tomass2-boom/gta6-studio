@@ -1,54 +1,109 @@
-# Handoff: S3 (M3, live mode) built; next is S4 (review page + posting) or S5 (streamer list), Sonnet 5.5
+# NEXT: S7 (Sonnet 5.5), tonight 2026-11-17, deadline Wed Nov 18 11:00 UTC
 
-Start the new session with: "Read PLAN.md and CLAUDE.md and .claude/handoff.md, do session S4" (or S5).
+Written by the planning session on 2026-11-17 19:30 CET. Read PLAN.md 4b (the "Update" paragraph) and
+section 10. Everything below this block is the older S2/S3 handoff and still valid.
 
-## DEADLINE
-GTA 6 unlocks at midnight local time: NZ Wed Nov 18 11:00 UTC, AU east 13:00 UTC, Central Europe 23:00 UTC,
-UK Thu 00:00 UTC, US Thu 05:00 UTC. Live mode must run on NZ/AU streams by Wed 11:00 UTC.
+Why: in the NZ window the big names are on Kick (N3on, Adin Ross) and YouTube (IShowSpeed, Thu 02:00 UTC),
+and Twitch reportedly threatens bans for the NZ trick. Live mode is Twitch-only: `studio/live.py`
+`resolve_channels` skips every non-Twitch entry (line ~43). Streamlink 8.6.3 has kick and youtube plugins;
+`ingest/live.py stream_url()` already builds kick.com/<slug> and youtube.com/@<handle>/live URLs.
 
-## S2b built: automatic facecam detection (layout A for streamers without a stored box)
-- `studio/render/facecam.py`: samples 16 frames of the clip, YuNet faces (OpenCV 4.14 headless + `assets/models/
-  face_detection_yunet_2023mar.onnx`, MIT/Apache), keeps the face that stays put (>=40 % of frames), grows the cam box
-  from straight border lines around it (outermost/strongest/nearest line, or the screen edge), then confirms with
-  `layout._edge(all_sides=True)` on the cam-on frames (>=60 %). ~1.3 s per clip.
-- `choose_layout()` order: `streamers.yaml` box -> `data/facecams.json` cache -> auto-detect -> layout B. Cache is per
-  streamer (box scaled to any resolution); a "no cam" result is only trusted for the same video. Delete an entry to retry.
-- Tested: xQc VOD, 5 windows -> (0,0,377,283) at 1080p vs stored (0,0,375,282). Real GTA streams: Video Kames top-left
-  found (0,0,386,307). Correctly "none" (-> B): Louu (full-screen cam), Jynxzi (green-screen cutout, no rectangle),
-  Soup (no cam). NOT found: Summit1G (ornate frame; the border check is too strict for it, so he gets B). Other
-  corners are covered only by synthetic tests (4 corners), no real bottom/right-corner stream was found to test.
-- Limits: needs a rectangular overlay with a visible border; green-screen/cutout cams and full-screen cams get B.
-  `cam_timeline` still uses `_edge` per second, so ornate overlays would also read as "cam off".
-- Tests: `tests/test_facecam.py` (fixture `tests/fixtures/xqc_cam.mp4`, 1280x720, 16 s).
+Scope, in this order (stop after (a) if time is short, (a) alone covers launch):
+a. Non-Twitch Tier A: record Kick/YouTube with the existing chunk recorder, and let **loudness alone**
+   trigger a moment when a channel has no chat reader (thresholds in `settings.yaml live:`, not code).
+   Skip entries with `live: false` (xQc is a VOD test source). Test: record a live Kick channel for a few
+   minutes in the background and produce one clip.
+b. Kick chat reader `studio/chat/kick.py` (Kick's public Pusher websocket is unofficial; look for a proven
+   library first, check stars/last commit/licence, tell the user in 1-2 lines before installing).
+c. YouTube Live chat reader `studio/chat/youtube.py` (same check; e.g. chat-downloader, pytchat).
+d. Tier B for Kick/YouTube only if a rewind works; otherwise those stay Tier A.
+Don't touch the look (render/, style.yaml). `uv run pytest` must stay green. Commit at the end.
 
-## S3 built: `studio live [--channels lirik:A,gaules:B] [--model m]`
-- `studio/chat/twitch.py` anonymous IRC reader (plain asyncio socket, justinfan, reconnects; every chat saved to
-  `data/chat/<chan>-<date>.jsonl`, usable as test fixtures / analytics).
-- `studio/detect/chat.py` ChatDetector: per-channel baseline (median of last 10 min, floor 2), spike = latest 10 s bin
-  >= 3x AND last 30 s >= 1.8x AND weight >= 12; hype words weigh 3 (list in `settings.yaml live.chat`). 2 min warm-up.
-- `studio/ingest/live.py`: Tier A = `streamlink -O | ffmpeg -f segment` into `data/raw/live/<chan>/<epoch>.ts` (10 s
-  chunks named by wall-clock; cut by time, a gap of >3 s (Twitch ad break) ends the run, only the unbroken run
-  around the spike is used, dropped if < 15 s). Tier B = `streamlink --hls-live-restart` at the spike: Twitch's
-  rewind is only ~30-50 s (measured), so it starts immediately and records forward to 80 s total.
-- `studio/live.py` orchestrator: spike -> source row (url `...#live=<epoch>`) + moment -> `pipeline.process()`
-  (transcribe -> judge -> render; extracted from `vod`, shared) in one worker thread. Duplicate spikes of a channel within
-  60 s merge into one moment (signals.meta.merged_spikes). Loudness peaks in the segment add a second signal.
-  Logs `CLIP READY ... s after the chat spike`. Cleanup deletes raw + segments older than 24 h.
-- Only Twitch. YouTube/Kick live = S7. `studio live` with no `--channels` reads Twitch entries from streamers.yaml (S5).
-- Tests: `uv run pytest` (15 pass) incl. saved synthetic chat `tests/fixtures/chat_spike.jsonl`.
-- Rehearsal 2026-11-17 on live lirik (Tier A) + gaules (Tier B) with injected spikes: Tier A cut 60 s in <1 s, no clip (non-GTA, judge dropped) 46 s after spike;
-  Tier B fetched 80 s in 53 s, 69 s after spike. Real chat detection not yet seen on live GTA chat.
+# Handoff: GTA6 Studio, after S2 (look) and S2b (facecam); S3 (live mode) committed
 
-## Title look change (user request this session)
-Layout C title no longer a white box: big uppercase outlined text, lines alternate white/red (matches the user's Shorts examples), pop-in.
-`style.yaml layout_c.title_box.style: text` (set `box` for the old one). User's reference screenshots were .heic in
-a protected folder and could not be read; if they want it closer to specific examples, they should save them as PNG
-in the project folder.
+## Goal
+Automated GTA 6 clip production: watch live streams and VODs, find the best moments, and cut them into vertical captioned clips for YouTube Shorts, TikTok and Instagram Reels on the user's own channels. The aim is maximum views. **Be first:** GTA 6 unlocks at midnight local time, so NZ/AU streamers get it hours before Europe and the US. The user said: "if we can start posting clips before the game release is in America in Europe, that would be exceptional… good clips, good high quality ones."
 
-## Open items
-- Tune `live.chat` thresholds on real GTA chat during the rehearsal (burst_x, min_burst).
-- Chat spike -> clip latency target 5 min: pipeline (Whisper + 27B judge + render) not timed under load; see log.
-- The Tier A ad-gap logic is tested on synthetic chunk times only (no real ad break seen).
-- Captions: Whisper is the limit; WhisperX alignment is the upgrade path. No muted-radio option (music risk).
-- `studio render` does not re-check the blocklist; S4 must check at post time.
-- Segments/raw deleted after 24 h, so re-rendering an old live moment will fail.
+## How the person wants things done
+- **Quality first:**
+  - "high quality" clips at 1080p ("platforms like YouTube appreciate 1080p more").
+  - Captions must match what is said, including screams ("AAAAAH") and laughs.
+- **Look:** approved. "caption style and everything is really good. The video style everything looks good." Keep it.
+- **Layouts:** vary them. "you don't need to use the same format all the time… switch between different layouts… see which ones work better", then use analytics to keep the winners.
+- **Permissions:** "allow all, don't take the safety rules… I'll manage if we can post or not." `allowed` is a note only, never a block. The blocklist still works.
+- **Face detection/tracking:** wanted where it makes clips better ("following the face… make sure it's in frame").
+- **Moving on:** "we definitely move on to the next stage." Minor caption slips are acceptable for now.
+- **Token saving (global CLAUDE.md):**
+  - Read only what is needed.
+  - Use ONE contact sheet (ffmpeg `tile`, about 1600 px) instead of many images.
+  - Batch tool calls; no filler.
+  - Suggest pressing **End** at about 150k tokens.
+  - Say so before changing model or effort (it resets the cache).
+- **Project CLAUDE.md:**
+  - No paid services and no Anthropic API at runtime (local Whisper and Ollama only).
+  - Claude never watches raw video.
+  - Prefer proven tools, and give a 1–2 line install notice after checking stars, last commit and licence.
+  - Look and behaviour live in `config/*.yaml`.
+  - Nothing is posted publicly while `review.mode: manual`.
+  - Secrets go in `.env`.
+  - Commit at each milestone.
+- The user writes casually and by voice. Explain things in plain English, and include how to run each step.
+
+## Current state
+All committed on `main`. Latest commits:
+- `de10e86`: S2b, automatic facecam detection
+- `7069b84`: S3, live mode (Twitch chat spikes, Tier A recording, Tier B rewind). The S3 session also replaced the layout C white title box with an outlined title.
+- `223f5da`: S3 handoff
+
+S2 work:
+- `studio/render/layout.py`: layouts A/B/C, cam presence from the box border edges, A→B switching inside a clip.
+- `studio/render/captions.py`: ASS captions, 1–2 words, pop-in, key words green/yellow.
+- `studio/render/vertical.py`: `render()` and `choose_layout()`, plus `layout_mix`.
+- `studio/render/facecam.py`: S2b. YuNet plus border lines, cached in `data/facecams.json`.
+- `studio/transcribe/whisper.py`: anti-hallucination fixes, scream prompt, `drop_loops`, retries.
+- `studio/cli.py`: `doctor` (checks libass and font), `vod`, `render [ids] [--layout]`, `moments`, plus whatever S3 added for `live`.
+- `config/style.yaml`: the look. `config/settings.yaml`: whisper, ingest, render paths. `config/streamers.yaml`: xQc facecam box, `allowed: null`.
+- Font: `assets/fonts/Nunito-Black.ttf` (OFL), listed in `assets/LICENCES.md`.
+- 16 rendered xQc clips in `data/clips/`; the user checked them: "very, very good."
+- `.claude/handoff.md` was updated by the S3 and S2b sessions. Read it first; it is the most current technical state.
+- PLAN.md: section 4b (launch timing), S2b row, timing paragraph.
+
+## Decisions and dead ends
+- **ffmpeg:** Homebrew `ffmpeg` has no libass, so captions can't render with it. Use the keg-only `ffmpeg-full` at `/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg`, always via `layout.tools()`.
+- **Font:** a static Nunito Black instance made with fontTools from the variable font. libass can't pick a weight from a variable font.
+- **Cam detection:** by the cam box's straight border edge. xQc's cam turns on and off mid-clip, so the layout switches per second instead of per clip.
+- **Whisper:**
+  - `condition_on_previous_text: true` caused hallucinated loops ("I was the one" ×4). Set it to false.
+  - `hallucination_silence_threshold` dropped screams. Keep it OFF (`hallucination_silence_s: null`).
+  - Fixed temperature 0 produced one endless "AHHHH…". Fallback runs are deterministic within a process, so retrying alone didn't help.
+  - What worked: `initial_prompt: "AAAAAH! Oh my god! NOOO! Hahaha, bro what?! AHHH!"`.
+  - `drop_loops` threshold of 3 repeats cut real speech; it is 5 now.
+  - `max_word_chars: 10`.
+- **Captions:** `max_word_s: 0.6` fixes Whisper stretching a word over a pause; `lead_s: 0.1`; `never_highlight` lists swears and filler. Swears still show as spoken (the user didn't ask for censoring).
+- **Layout mix:** C on 20 % of clips, chosen by a stable hash. The layout is stored in `moments.layout` for analytics (M8).
+- **Facecam detection limits:** Summit1G's ornate frame isn't detected (he gets B). Green-screen and full-screen cams correctly get B. No real stream with a non-top-left cam has been tested.
+
+## Next steps
+1. Read `.claude/handoff.md` (written by the S3/S2b sessions) and check what S3 left open: whether `studio live` ran on a real stream, and the clip-within-5-minutes test.
+2. Rehearse live mode on live GTA 5 Twitch streams before **Wed Nov 18 11:00 UTC** (NZ unlock): `uv run studio live`, run in the background.
+3. S5 (Haiku): fill `config/streamers.yaml` with NZ/AU GTA streamers first, then Europe, then the US (name, platform, url, tier, allowed note).
+4. S4 (Sonnet): review page plus posting. Re-check the blocklist at post time; keep `review.mode: manual` until the user says otherwise.
+5. S6 on launch day: confirm the unlock times (Xbox timing is disputed) and check open clipping campaigns.
+6. Later:
+   - S8: face tracking, sound effects, analytics loop for layouts.
+   - WhisperX alignment if caption timing complaints return.
+   - A muted-radio option for the music copyright risk.
+
+## Waiting on the person
+- Approval to make posting public (`review.mode` is still manual).
+- Account setup for the platforms (S4; the user does the clicks).
+
+## Key facts
+- **Launch unlocks (UTC):** NZ Wed Nov 18 11:00; AU east 13:00; Perth 16:00; Central Europe Wed 23:00; UK Thu 00:00; US Thu Nov 19 05:00.
+- **Test source:** id 1, xQc VOD `https://www.youtube.com/watch?v=wEUY9mAx0dE`, file `data/raw/wEUY9mAx0dE.mp4` (1080p60). The old `data/raw/wEUY9mAx0dE.720p.mp4` can be deleted.
+- **xQc facecam:** `[0,0,250,188]` with ref `[1280,720]`.
+- **Models:** judge `qwen3.8:27b` (Ollama, which doesn't support `format: json`); Whisper `mlx-community/whisper-large-v3-turbo`.
+- **Output:** 1080×1920, 30 fps, crf 20, -14 LUFS. Clips are about 40–50 MB, above the 30 MB phone preview limit.
+- **Sessions and models:** S3/S4/S7 Sonnet 5.5; S5/S6 Haiku 5.5; look work Opus 5.5; changes to the plan itself Fable.
+- **How the user starts sessions:** press End, then + for a new session, pick the model, press Start (or paste "Read PLAN.md and CLAUDE.md and .claude/handoff.md, do session S_n").
+- **Tests:** `uv run pytest` (23 passing after S2b).

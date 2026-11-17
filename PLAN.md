@@ -162,6 +162,25 @@ What this changes:
 - Story/cutscene spoilers are most sensitive in this window; the judge already
   drops cutscene moments.
 
+**Update 2026-11-17 evening (who streams in the NZ window):**
+- **Twitch reportedly warned creators** that using the "NZ trick" (NZ account
+  or console region) can get them suspended. Expect big US Twitch streamers
+  to wait for their own unlock. The NZ window (11:00 UTC) will mostly be
+  **Kick and YouTube** streamers plus people really in NZ/AU.
+- **N3on (Kick)** is the user's top pick; he said he will stream from NZ
+  (not confirmed in news). **Adin Ross (Kick)** is the other big Kick name.
+- **IShowSpeed (YouTube)** announced his GTA VI stream for **9 PM ET Nov 18 =
+  Thu 02:00 UTC (03:00 CET)**. Reports of an NZ trip clash with that and are
+  unconfirmed. Plan for 02:00 UTC, watch for earlier.
+- **Kai Cenat (Twitch):** NZ trip is a rumour from one YouTube Short.
+- So **live mode must follow Kick and YouTube before 11:00 UTC Wednesday**:
+  S7 moves ahead of S4 (section 10).
+- **First hour is thin:** streams open with menus and intro cutscenes, which
+  the judge drops on purpose. Expect few clips until real gameplay starts.
+- **Zero-build fallback** if S7 is not ready: open the Twitch GTA VI
+  category, pick who is live (most viewers first) and run
+  `uv run studio live --channels name1:A,name2:B,...`. Twitch only.
+
 ## 5. AI: what runs where
 
 | Job | Runs on | Cost |
@@ -269,13 +288,21 @@ each other's files.
 | S4 | M4 + M5 | Sonnet 5.5 | Standard web page and API work. You do the account clicks |
 | S5 | Streamer list: who streams GTA 6, where, who allows clipping | Haiku 5.5 | Web lookups only |
 | S6 | Open campaigns check on launch day | Haiku 5.5 | Web lookups only |
-| S7 | M6 | Sonnet 5.5 | Same pattern as S3 |
+| S7 | M6, **now before S4** | Sonnet 5.5 | Kick + YouTube live for launch (N3on, Speed). Scope in order: (a) Tier A recording for any platform + loudness-only trigger when no chat reader exists, (b) Kick chat, (c) YouTube Live chat |
 | S8 | M7 + M8 | Sonnet 5.5, Opus only for arrow placement design | |
 
-Suggested timing: **Tuesday** S1, S2, then S3 and S5 (NZ/AU streamers first).
-**Wednesday morning** S2b if time allows (else layout B for unknown cams), S4,
-short rehearsal; **from 11:00 UTC** run it on NZ/AU streams, then Europe
-(23:00 UTC) and the US (05:00 UTC Thursday). **Thursday** S6, fix what breaks.
+Order from Tuesday evening 2026-11-17 (S1, S2, S2b, S3 are done):
+1. **S7 tonight (Sonnet 5.5):** Kick + YouTube live. Must work by Wed 11:00 UTC.
+2. **S5 (Haiku 5.5), can run right after S7 or Wednesday morning:** fill
+   `streamers.yaml`. Find AU/NZ names from Twitch/Kick GTA viewer rankings
+   (TwitchTracker, StreamsCharts, Kick category pages) filtered to AU/NZ,
+   not from news articles. Verify every channel slug.
+3. **Wednesday morning:** rehearsal on live Kick and Twitch GTA 5 streams.
+4. **Wed 11:00 UTC (12:00 CET):** `uv run studio live` in the background on
+   the NZ/AU list. Day 1 posting is by hand from `data/clips/`.
+5. **S4 (Sonnet 5.5) after the launch window opens:** review page + posting.
+   While `studio live` runs it must not edit `live.py`, `ingest/`, `pipeline.py`.
+6. **Thursday:** S6 (Haiku) campaigns + unlock check, fix what broke.
 
 Come back to Fable only if the plan itself needs to change.
 
