@@ -145,7 +145,8 @@ class Live:
             out = vid.SEG / f"{ch}-{int(first)}.mp4"
             if e["tier"] == "A":
                 path, base, dur = vid.cut_from_recording(ch, first - L["pre_roll_s"], last + L["post_roll_s"],
-                                                         first, out, L["chunk_s"], L["min_len_s"])
+                                                         first, out, L["chunk_s"], L["min_len_s"],
+                                                         L.get("hole_s", {}).get(e["platform"]))
             else:
                 path, base, dur = vid.fetch_rewind(e["platform"], ch, L["tier_b_duration_s"], out, L["min_len_s"])
             con.execute("UPDATE sources SET path=?, duration=? WHERE id=?", (str(path), dur, sid))
@@ -178,8 +179,8 @@ class Live:
         while True:
             mid, path, spike_t = self.todo.get()
             ok = process(con, mid, path, self.lg, self.model)
-            self.lg.info("moment %d %s, %.0fs after the chat spike", mid, "CLIP READY" if ok else "no clip",
-                         time.time() - spike_t)
+            self.lg.info("moment %d %s (%s), %.0fs after the spike", mid, "CLIP READY" if ok else "no clip",
+                         path.rsplit("/", 1)[-1].rsplit("-", 1)[0], time.time() - spike_t)
 
     # ---- main loop ------------------------------------------------------
     async def supervise(self, ch):
@@ -243,10 +244,11 @@ class Live:
         for c, e in self.chans.items():
             if e["platform"] != "kick":
                 continue
-            if e.get("kick_chatroom"):
-                tasks.append(kick.read_one(c, int(e["kick_chatroom"]), self.on_message, self.lg))
+            room = e.get("kick_chatroom") or kick.lookup_chatroom(c)   # --channels kick/x: look it up
+            if room:
+                tasks.append(kick.read_one(c, int(room), self.on_message, self.lg))
             else:
-                self.lg.warning("%s: no kick_chatroom in streamers.yaml, loudness trigger only", c)
+                self.lg.warning("%s: no kick_chatroom (streamers.yaml or Kick API), loudness trigger only", c)
         tasks += [self.supervise(c) for c, e in self.chans.items() if e["tier"] == "A"]
         tasks += [self.watch_loudness(c) for c in self.chans if self.uses_loud(c)]
         threading.Thread(target=self.worker, daemon=True).start()

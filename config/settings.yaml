@@ -32,28 +32,31 @@ render:
 live:
   chat:
     bin_s: 10             # chat is counted in bins of this many seconds
-    burst_x: 3.0          # latest bin must be this many times the channel's own normal level
+    burst_x: 4.0          # latest bin must be this many times the channel's own normal level (rehearsal 2026-11-17: 3.0 gave 15/h on a busy Kick chat, 4.0 gives 8/h and keeps every 6-9x spike)
     sustain_x: 1.8        # and the last 3 bins (30 s) this many times
     floor: 2.0            # baseline never below this (weighted msgs per bin), so quiet chats don't fire on 3 messages
     min_burst: 12         # and the burst must weigh at least this much
     warmup_bins: 12       # no spikes in the first 2 minutes of watching a channel
     baseline_bins: 60     # baseline = median of the last 10 minutes
+    repeat_cap: 3         # copy-paste spam: the same message (first words) counts at most this often per bin
+    repeat_min_words: 3   # only messages of this many words or more; "LOL" x50 is real hype and is never capped
     hype_weight: 3        # LOL / W / OMG / clip it / laugh emotes count this much, other messages 1
     hype_words: [lol, lmao, lmfao, kekw, omegalul, lul, w, ww, www, omg, pog, poggers, pogchamp, clip, "clip it", "clip that", wtf, "no", nooo, rip, dead, "😂", "💀", icant, "?!"]
   loud_trigger: no_chat   # loudness trigger on the live recording: no_chat (only channels without a chat reader) | always | off
   loud:
     bin_s: 1              # loudness is measured per second of each finished chunk
     burst_s: 6            # median of the last 6 s (one bang alone does not fire) ...
-    z: 4.0                # ... must be this many robust std-devs above the channel's own normal
-    min_ratio: 1.6        # and at least this many times its median loudness
+    z: 4.0                # ... must be this many robust std-devs above the channel's own normal (rehearsal 2026-11-17: z binds, not min_ratio; with cooldown 90 = 9/h Kick, 4/h YouTube; 4.5 lost a kept clip)
+    min_ratio: 1.6        # and at least this many times its median loudness (real bursts were 3.5-6x, so this rarely binds)
     baseline_s: 600       # normal = median of the last 10 minutes
     warmup_s: 90          # no triggers in the first 90 s of watching a channel
-    cooldown_s: 20        # one trigger per burst
+    cooldown_s: 90        # one trigger per burst (20 s let one shouting stretch fire 4 times in 4 min)
   pre_roll_s: 40          # chat reacts late: cut this much before the spike
   post_roll_s: 30         # and this much after
   merge_s: 60             # spikes of one channel closer than this are one moment
   max_window_s: 100
   min_len_s: 15           # contiguous video needed; shorter (ad gaps) is dropped
+  hole_s: {kick: 10}      # Kick names chunks in bursts (lag up to 30 s, then catches up; jitter ±5 s): measure chunks, a hole = lag that stays > this. Others: fixed 10 s grid
   chunk_s: 10             # Tier A recording is cut into chunks named by wall-clock time
   keep_h: 24              # raw recordings and segments are deleted after this
   tier_b_duration_s: 80   # Tier B: Twitch rewind gives ~30-50 s back, then it records forward to this length

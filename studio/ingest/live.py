@@ -42,16 +42,31 @@ def chunks(channel: str, t0: float, t1: float, chunk_s: int) -> list[tuple[float
     return [(t, p) for t, p in allc if t + chunk_s >= t0 and t <= t1]
 
 
-def contiguous_run(starts: list[float], around: float, chunk_s: int, max_gap: float = 3.0) -> tuple[int, int]:
+def contiguous_run(starts: list[float], around: float, chunk_s: int, max_gap: float = 3.0,
+                   lengths: list[float] | None = None) -> tuple[int, int]:
     """Indexes [i, j) of the run of chunks without a gap (ad break, reconnect) that contains/is nearest `around`.
-    A chunk is expected every chunk_s; a hole bigger than max_gap seconds ends the run."""
+    Without `lengths`: a chunk is expected every chunk_s; a hole bigger than max_gap seconds ends the run.
+    With `lengths` (real seconds of each chunk): Kick delivers video in bursts, so a chunk's wall-clock name can lag
+    its content by up to ~30 s and then catch up (measured 2026-11-17: spacing 2-28 s, 799 s of content in 798 s of
+    wall time). lag = name - content timeline. A stall recovers; a real hole shifts every later chunk for good, so a
+    hole is where the lowest lag after it is more than max_gap above the lowest lag before it."""
     if not starts:
         return 0, 0
     runs, s = [], 0
-    for k in range(1, len(starts) + 1):
-        if k == len(starts) or starts[k] - starts[k - 1] > chunk_s + max_gap:
-            runs.append((s, k))
-            s = k
+    if lengths is None:
+        for k in range(1, len(starts) + 1):
+            if k == len(starts) or starts[k] - starts[k - 1] > chunk_s + max_gap:
+                runs.append((s, k))
+                s = k
+    else:
+        cum, lag = 0.0, []
+        for k in range(len(starts)):
+            lag.append(starts[k] - starts[0] - cum)
+            cum += lengths[k]
+        for k in range(1, len(starts) + 1):
+            if k == len(starts) or min(lag[k:]) - min(lag[s:k]) > max_gap:
+                runs.append((s, k))
+                s = k
 
     def dist(r):
         a, b = starts[r[0]], starts[r[1] - 1] + chunk_s
@@ -59,14 +74,29 @@ def contiguous_run(starts: list[float], around: float, chunk_s: int, max_gap: fl
     return min(runs, key=lambda r: (dist(r), -(r[1] - r[0])))
 
 
-def cut_from_recording(channel: str, t0: float, t1: float, spike_t: float, out: Path, chunk_s: int, min_len: float):
-    """Tier A: join the chunks for the window into one file. Returns (path, base_epoch, duration) or raises."""
+def chunk_len(path: Path) -> float:
+    """Real seconds of one chunk from its audio packets (format duration is wrong on .ts, measured)."""
+    r = subprocess.run([tools()[1], "-v", "error", "-select_streams", "a:0", "-show_entries",
+                        "packet=pts_time,duration_time", "-of", "csv=p=0", str(path)], capture_output=True, text=True)
+    rows = [x.strip(",").split(",") for x in r.stdout.split() if "N/A" not in x and x.strip(",").count(",") == 1]
+    if not rows:
+        return 0.0
+    return float(rows[-1][0]) + float(rows[-1][1]) - float(rows[0][0])
+
+
+def cut_from_recording(channel: str, t0: float, t1: float, spike_t: float, out: Path, chunk_s: int, min_len: float,
+                       hole_s: float | None = None):
+    """Tier A: join the chunks for the window into one file. Returns (path, base_epoch, duration) or raises.
+    hole_s: measure each chunk and allow name lag up to this (Kick, see contiguous_run); None = fixed chunk_s."""
     cs = chunks(channel, t0, t1, chunk_s)
     if not cs:
         raise RuntimeError("no recorded chunks for this window (offline, or recorder not running)")
-    i, j = contiguous_run([t for t, _ in cs], spike_t, chunk_s)
+    if hole_s is None:
+        i, j = contiguous_run([t for t, _ in cs], spike_t, chunk_s)
+    else:
+        i, j = contiguous_run([t for t, _ in cs], spike_t, chunk_s, hole_s, [chunk_len(p) for _, p in cs])
     cs = cs[i:j]
-    if len(cs) * chunk_s < min_len:
+    if (len(cs) * chunk_s if hole_s is None else sum(chunk_len(p) for _, p in cs)) < min_len:
         raise RuntimeError(f"only {len(cs) * chunk_s:.0f}s of unbroken video around the spike (ad break?)")
     out.parent.mkdir(parents=True, exist_ok=True)
     lst = out.with_suffix(".txt")

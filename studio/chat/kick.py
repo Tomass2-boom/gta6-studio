@@ -5,6 +5,7 @@ so look one up with `curl -s https://kick.com/api/v2/channels/<slug>` and read c
 import asyncio
 import json
 import re
+import subprocess
 import time
 
 import websockets
@@ -14,6 +15,16 @@ from .twitch import _save
 PUSHER_KEY = "34bf7a0ff419a2a775b9"
 URL = f"wss://ws-us2.pusher.com/app/{PUSHER_KEY}?protocol=7&client=js&version=8.4.0&flash=false"
 EMOTE = re.compile(r"\[emote:\d+:([^\]]+)\]")
+
+
+def lookup_chatroom(slug: str) -> int | None:
+    """Chatroom id from Kick's API. curl, not Python: Kick answers 403 to Python's TLS fingerprint."""
+    try:
+        r = subprocess.run(["curl", "-s", "-m", "15", "-A", "Mozilla/5.0", f"https://kick.com/api/v2/channels/{slug}"],
+                           capture_output=True, text=True, timeout=20)
+        return int(json.loads(r.stdout)["chatroom"]["id"])
+    except Exception:
+        return None
 
 
 def parse(frame: str):

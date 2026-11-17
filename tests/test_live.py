@@ -77,3 +77,22 @@ def test_kick_frame_parse():
     frame = json.dumps({"event": "App\\Events\\ChatMessageEvent", "data": data})
     assert parse(frame) == ("bob", "KEKW nice W")
     assert parse(json.dumps({"event": "pusher:ping", "data": {}})) == None and parse("junk") is None
+
+
+def test_copy_paste_raid_is_not_a_spike():
+    """Real deansocool chat 2026-11-17: a raid pasted 'fuck your mod <emote>' ~60 times in 5 s (x38 spike)."""
+    rows = [json.loads(x) for x in (FIX / "chat_raid.jsonl").read_text().splitlines()]
+    cfg = load("settings")["live"]["chat"]
+    raid = lambda sp: [s for s in sp if 1794944085 <= s.t <= 1794944095]
+    assert raid(run(rows, {**cfg, "repeat_cap": 10**6})), "without the cap the raid fires (fixture sanity)"
+    assert not raid(run(rows, cfg))
+
+
+def test_kick_burst_names_are_not_holes_but_real_holes_are():
+    """Kick 2026-11-17: chunk names lag in bursts (12 s chunk, next named 28 s later, then short spacings)."""
+    lens = [10, 12, 12, 7, 6, 12, 12, 12]
+    starts = [0, 10, 28, 33, 39, 46, 58, 70]           # lag 6 s then catches up: one run
+    assert contiguous_run(starts, 40, 10, 5, lens) == (0, 8)
+    starts2 = starts[:5] + [s + 40 for s in starts[5:]]  # a real 40 s hole after chunk 4
+    assert contiguous_run(starts2, 90, 10, 5, lens) == (5, 8)
+    assert contiguous_run(starts2, 20, 10, 5, lens) == (0, 5)

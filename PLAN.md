@@ -333,9 +333,9 @@ These need your accounts and cannot be done by Claude:
 
 | Part | State |
 |---|---|
-| VOD mode (`studio vod <url>`) | Works. Tested on one YouTube VOD (xQc, 16 clips approved). Signals: loudness + YouTube "most replayed". Twitch/Kick VODs download via yt-dlp but are **untested**, and have no heatmap, so they get loudness only |
-| Live mode, Twitch | Works: chat spikes, Tier A record, Tier B rewind. Rehearsed with fake spikes only |
-| Live mode, Kick / YouTube | Records + chat readers built. **Loudness trigger never fired on real GTA audio**; thresholds untuned. Tier B for Kick/YouTube not built (they record as Tier A) |
+| VOD mode (`studio vod <url>`) | Works on YouTube, Twitch and Kick (rehearsal 2026-11-17; Kick goes through our own lookup, yt-dlp's Kick VOD extractor is broken). Twitch/Kick have no heatmap: loudness only, which on talk-heavy RP streams picks chatter (0 of 12 judged moments kept). Chat replay as a signal = S9 |
+| Live mode, Twitch | Works on real streams (rehearsal 2026-11-17): chat spikes, Tier A record, Tier B rewind made a clip. Copy-paste raids are capped |
+| Live mode, Kick / YouTube | Works on real streams (rehearsal 2026-11-17): chat and loudness triggers both fired, each platform made a clip; thresholds tuned from real numbers. Kick chunk-gap bug fixed. Tier B for Kick/YouTube not built (they record as Tier A) |
 | Review page (`studio review`) | **Stub** (M4) |
 | Posting (`studio post`) | **Stub** (M5). Day 1 = post by hand from `data/clips/` |
 | Streamer list | 5 names; AU/NZ list is thin (only DarkViperAU) |
@@ -343,7 +343,7 @@ These need your accounts and cannot be done by Claude:
 | Analytics loop (M8) | Not started |
 
 **What is left, in order (updated 2026-11-17 20:20 CET, prompts in `.claude/next-sessions.md`):**
-1. **Tonight: rehearsal (Sonnet 5.5).** `studio live` on real GTA 5 streams on Kick, YouTube and Twitch;
+1. ~~**Tonight: rehearsal (Sonnet 5.5).**~~ DONE 2026-11-17 (see `.claude/handoff.md`). `studio live` on real GTA 5 streams on Kick, YouTube and Twitch;
    each platform makes a clip from a real trigger; tune loudness/chat thresholds; test one Twitch and one
    Kick VOD.
 2. **Tonight: S8 part 1, the look upgrades (Opus 5.5).** Sound effects, circles/arrows, face tracking, all

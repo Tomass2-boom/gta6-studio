@@ -3,6 +3,9 @@
 Each channel has its own baseline: messages (weighted) per 10 s bin. A spike needs a short burst
 (latest bin) AND a sustained rise (last 3 bins = 30 s) against the median of the last 10 minutes.
 Hype messages (LOL, W, OMG, clip it, laugh emotes) weigh more than plain chatter.
+Copy-paste spam (a raid pasting the same sentence 60 times, seen 2026-11-17) is capped: a message of
+repeat_min_words+ words with the same first words counts at most repeat_cap times per bin. Short hype
+("LOL", "KEKW") is never capped: many people typing it is the signal.
 """
 import re
 import statistics
@@ -24,6 +27,7 @@ class Spike:
 class _Chan:
     bins: dict = field(default_factory=dict)      # idx -> weighted count
     hype: dict = field(default_factory=dict)      # idx -> hype weight
+    reps: dict = field(default_factory=dict)      # (idx, first words) -> count, for the spam cap
     first_idx: int | None = None
     done_idx: int | None = None                   # last evaluated bin
 
@@ -56,6 +60,12 @@ class ChatDetector:
             st.first_idx = i
             st.done_idx = i - 1
         w, hype = self.weigh(text)
+        words = re.findall(r"\w+", text.lower())
+        if len(words) >= self.c.get("repeat_min_words", 3):
+            key = (i, " ".join(words[:self.c.get("repeat_min_words", 3)]))
+            st.reps[key] = st.reps.get(key, 0) + 1
+            if st.reps[key] > self.c.get("repeat_cap", 3):
+                return self.tick(ts, channel)
         st.bins[i] = st.bins.get(i, 0) + w
         if hype:
             st.hype[i] = st.hype.get(i, 0) + w
@@ -86,6 +96,8 @@ class ChatDetector:
         base = max(statistics.median(hist), c["floor"])
         for k in [k for k in st.bins if k < i - c["baseline_bins"] - 10]:   # keep memory small
             st.bins.pop(k); st.hype.pop(k, None)
+        for k in [k for k in st.reps if k[0] < i]:
+            st.reps.pop(k)
         if burst >= c["min_burst"] and burst >= c["burst_x"] * base and sustain >= c["sustain_x"] * base:
             return Spike(name, (i + 1) * c["bin_s"], burst / base, burst, base,
                          st.hype.get(i, 0) / burst if burst else 0)

@@ -1,4 +1,42 @@
-# NEXT: see .claude/next-sessions.md (rehearsal, then look upgrades, full test, warm-up clips)
+# NEXT: see .claude/next-sessions.md. Rehearsal DONE; next = S8 part 1, the look upgrades (Opus 5.5)
+
+# Handoff: rehearsal done 2026-11-17 (PLAN 13 step 1)
+
+**Live, real triggers only (no fakes), streams found live via Twitch GQL / Kick API / yt-dlp live search:**
+`--channels kick/ramee:A,youtube/OpTicGaming:A,deansocool:A,youney:B`, then tuned rerun with `formal:B` instead of youney.
+
+| Platform | Trigger that fired | Clip |
+|---|---|---|
+| Kick (ramee, GTA RP) | loud + chat (Kick Pusher chat works) | moment 36, score 8, `data/clips/5_11.mp4` |
+| YouTube (OpTic heist marathon) | loud + chat | moments 45, 53 (score 8): `14_0.mp4`, `22_10.mp4` |
+| Twitch (formal, Tier B rewind) | chat | moment 59, `28_30.mp4` (Tier A deansocool: triggers fine, judge dropped all) |
+
+Spike to finished clip: mean 43 s (one worker, so about 80 moments an hour in total).
+
+**Fixed (live/ingest/detect/chat/settings only):**
+- Copy-paste raid: deansocool chat pasted "fuck your mod <emote>" about 60 times, which gave a 38x "spike". Fix: `live.chat.repeat_cap: 3` / `repeat_min_words: 3`. A message of 3+ words with the same first words counts at most 3 times per bin; "LOL" x50 is still counted in full. Test: `tests/fixtures/chat_raid.jsonl`.
+- Kick chunk "holes" were false. Kick delivers in bursts, so chunk names lag the content by up to 30 s and then catch up (799 s of content in 798 s wall time). The old 13 s gap rule threw away good Kick moments ("only 10s of unbroken video").
+  - Fix: `ingest/live.chunk_len()` (ffprobe audio packets) + `contiguous_run(lengths=)`. A hole is now a lag that stays up, not one that recovers.
+  - Setting: `live.hole_s: {kick: 10}`. Twitch and YouTube keep the fixed 10 s grid.
+  - Trade-off: a Kick reconnect hole under 10 s now gives a small jump cut instead of a failed moment.
+- `--channels kick/x` now looks up the chat id itself (`chat/kick.lookup_chatroom`, curl). Before, ad-hoc Kick channels got no chat.
+- Kick VODs: yt-dlp's kick:vod extractor is broken (Kick v1 API 404). `ingest/download.kick_vod()` reads `api/v2/channels/<slug>/videos` (curl, 3 retries), downloads the HLS `source`, and fills the title/channel in info.json. It only finds a channel's latest videos.
+- The CLIP READY log line now names the channel.
+
+**Tuning (offline replay of saved chat + chunks through the real detector classes, 45 min, 4 channels):**
+- Chat: `burst_x` 3.0 -> 4.0. A busy Kick chat went from 15/h to 8/h; Twitch's real 6-9x spikes are all kept. `min_burst` 12 kept.
+- Loud: `z` is the knob that binds, not `min_ratio` (real bursts are 3.5-6x). z 4.0 kept, `cooldown_s` 20 -> 90: Kick 9/h, YouTube 4/h. z 4.5 lost a kept clip. Chat reacted to only about 1 in 4 loud fires, so loud is the noisier trigger.
+- The replay script is not in the repo (scratchpad). Rebuild it if needed: feed `data/chat/*.jsonl` and `data/raw/live/<chan>/*.ts` loudness into `ChatDetector` / `LoudDetector` and count fires per hour after the first 10 min.
+
+**VOD test:** Twitch v2931512553 (34 min RP) and Kick ramee c4702eba (17 min RP) download and run end to end. 0 clips: loudness alone picks chatter on RP streams. S9 (chat replay as a signal) is the fix.
+
+**Not done / for other sessions:**
+- Judge drops most RP moments ("no gameplay action"). Good for action clips; RP-heavy streamers will give few clips. Judge prompt is outside this session's area.
+- Render (look session): clip 53 (OpTic multi-POV overlay) has a big empty black band on top with a small facecam+game strip. Facecam/layout B misread the overlay. Clip 59 caption shows "FUCKING" uncensored (platform risk?).
+- `db.connect()` has no WAL/busy_timeout. Don't run `studio vod` while `studio live` runs.
+- Kick/YouTube Tier B still not built (recorded as A).
+
+---
 
 # Handoff: S7 done (a, c); Kick chat and Tier B for Kick/YouTube not built
 
