@@ -104,7 +104,8 @@ Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,
     if layout == "C" and title:
         tb = style["layout_c"]["title_box"]
         text = title.upper() if tb["uppercase"] else title
-        inner = W - 2 * tb["margin_x"] - 2 * tb["padding_x"]
+        txt = tb.get("style", "box") == "text"
+        inner = W - 2 * tb["margin_x"] - (0 if txt else 2 * tb["padding_x"])
         lines, widest = wrap(text, cap["font_file"], tb["font_size"], inner)
         while len(lines) > 1:  # balance: narrow the box while the line count stays the same
             l2, w2 = wrap(text, cap["font_file"], tb["font_size"], widest - 20)
@@ -115,13 +116,25 @@ Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,
         line_h = tb["font_size"] * 1.15
         bw, bh = widest + 2 * tb["padding_x"], len(lines) * line_h + 2 * tb["padding_y"]
         bx, by = (W - bw) / 2, geo["video_top"] - tb["gap"] - bh
-        head += (f"Style: Title,{cap['font']},{tb['font_size']},{ass_color(tb['text_color'])},"
-                 f"{ass_color(tb['text_color'])},&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1\n")
-        events.append(f"Dialogue: 0,{ts(0)},{ts(duration)},Box,,0,0,0,,"
-                      f"{{\\an7\\pos({bx:.0f},{by:.0f})\\1c{ass_color(tb['color'])}\\bord0\\shad0\\p1}}"
-                      f"{_rounded_rect(bw, bh, tb['radius'])}")
-        events.append(f"Dialogue: 1,{ts(0)},{ts(duration)},Title,,0,0,0,,"
-                      f"{{\\pos({W // 2},{by + bh / 2:.0f})\\q2}}" + "\\N".join(lines))
+        if tb.get("style", "box") == "text":
+            # No box: big outlined text with a drop shadow, lines in alternating colours (common Shorts look).
+            cols = [ass_color(c) for c in tb["line_colors"]]
+            head += (f"Style: Title,{cap['font']},{tb['font_size']},{cols[0]},{cols[0]},"
+                     f"{ass_color(tb['outline_color'])},{ass_color('000000', 90)},0,0,0,0,100,100,0,0,1,"
+                     f"{tb['outline']},{tb['shadow']},5,0,0,0,1\n")
+            ty = geo["video_top"] - tb["gap"] - len(lines) * line_h / 2
+            body = "\\N".join(f"{{\\1c{cols[i % len(cols)]}}}{ln}" for i, ln in enumerate(lines))
+            events.append(f"Dialogue: 1,{ts(0)},{ts(duration)},Title,,0,0,0,,"
+                          f"{{\\pos({W // 2},{ty:.0f})\\q2\\fscx{tb['pop_from']}\\fscy{tb['pop_from']}"
+                          f"\\t(0,{tb['pop_ms']},\\fscx100\\fscy100)}}" + body)
+        else:
+            head += (f"Style: Title,{cap['font']},{tb['font_size']},{ass_color(tb['text_color'])},"
+                     f"{ass_color(tb['text_color'])},&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,5,0,0,0,1\n")
+            events.append(f"Dialogue: 0,{ts(0)},{ts(duration)},Box,,0,0,0,,"
+                          f"{{\\an7\\pos({bx:.0f},{by:.0f})\\1c{ass_color(tb['color'])}\\bord0\\shad0\\p1}}"
+                          f"{_rounded_rect(bw, bh, tb['radius'])}")
+            events.append(f"Dialogue: 1,{ts(0)},{ts(duration)},Title,,0,0,0,,"
+                          f"{{\\pos({W // 2},{by + bh / 2:.0f})\\q2}}" + "\\N".join(lines))
     never = {_norm(x) for x in cap.get("never_highlight", [])}
     kw = {_norm(p) for k in keywords or [] for p in str(k).split() if _norm(p)} - never
     colors, n_hl = cap["highlight_colors"], 0

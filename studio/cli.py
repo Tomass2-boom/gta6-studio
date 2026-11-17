@@ -88,8 +88,7 @@ def vod(url: str, top: int = typer.Option(15, help="Max candidate moments to jud
     """VOD mode: link in -> scored moments -> plain cut clips."""
     from .detect import signals
     from .ingest.download import fetch_video
-    from .judge.llm import as_list, judge
-    from .transcribe.whisper import transcribe
+    from .pipeline import process
 
     cfg, lg, con = load("settings"), log("vod"), db.connect()
     src = con.execute("SELECT * FROM sources WHERE url=?", (url,)).fetchone()
@@ -117,31 +116,7 @@ def vod(url: str, top: int = typer.Option(15, help="Max candidate moments to jud
                        "ORDER BY signal_score DESC LIMIT ?", (sid, top)).fetchall()
     lg.info("%d moments to process", len(rows))
     for m in rows:
-        mid = m["id"]
-        try:
-            tr = transcribe(src["path"], m["t_start"], m["t_end"])
-            db.update(con, mid, state="fetched", transcript=json.dumps(tr["segments"]), words=tr["words"])
-            if not tr["segments"]:
-                db.fail(con, mid, "no speech")
-                continue
-            j = judge(tr["segments"], model)
-            db.update(con, mid, state="judged", keep=int(bool(j.get("keep"))), score=j.get("score"),
-                      reason=j.get("reason"), title=j.get("title"), hashtags=" ".join(j.get("hashtags", [])),
-                      j_start=j["start"], j_end=j["end"], judge_model=model or cfg["judge"]["model"],
-                      keywords=as_list(j.get("keywords")))
-            if j.get("keep") and (j.get("score") or 0) >= cfg["clip"]["min_score"]:
-                a, b = _clamp(j["start"], j["end"], m["t_start"], m["t_end"], cfg["clip"])
-                if b - a < cfg["clip"]["min_len_s"]:
-                    db.fail(con, mid, f"clip too short after clamping ({b - a:.0f}s)")
-                    continue
-                db.update(con, mid, j_start=a, j_end=b)
-                _render_one(con, mid, lg)
-                lg.info("moment %d kept (%s) %s", mid, j.get("score"), j.get("title"))
-            else:
-                lg.info("moment %d dropped: %s", mid, j.get("reason"))
-        except Exception as e:  # no silent failures
-            lg.exception("moment %d failed", mid)
-            db.fail(con, mid, f"{type(e).__name__}: {e}")
+        process(con, m["id"], src["path"], lg, model)
 
 
 def _render_one(con, mid: int, lg, force_layout: str | None = None):
@@ -190,8 +165,11 @@ def moments():
 
 
 @app.command()
-def live():
-    typer.echo("Live mode arrives in S3.")
+def live(channels: str = typer.Option(None, help="Ad hoc channels instead of streamers.yaml, e.g. lirik:A,gaules:B"),
+         model: str = typer.Option(None, help="Override judge model")):
+    """Live mode: watch chat, record Tier A, fetch Tier B on spikes, turn spikes into clips. Ctrl-C stops."""
+    from .live import run
+    run(channels, model)
 
 
 @app.command()

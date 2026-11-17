@@ -29,3 +29,23 @@ render:
   # ffmpeg-full (Homebrew, keg-only) has libass for captions; the plain ffmpeg does not.
   ffmpeg: /opt/homebrew/opt/ffmpeg-full/bin/ffmpeg
   ffprobe: /opt/homebrew/opt/ffmpeg-full/bin/ffprobe
+live:
+  chat:
+    bin_s: 10             # chat is counted in bins of this many seconds
+    burst_x: 3.0          # latest bin must be this many times the channel's own normal level
+    sustain_x: 1.8        # and the last 3 bins (30 s) this many times
+    floor: 2.0            # baseline never below this (weighted msgs per bin), so quiet chats don't fire on 3 messages
+    min_burst: 12         # and the burst must weigh at least this much
+    warmup_bins: 12       # no spikes in the first 2 minutes of watching a channel
+    baseline_bins: 60     # baseline = median of the last 10 minutes
+    hype_weight: 3        # LOL / W / OMG / clip it / laugh emotes count this much, other messages 1
+    hype_words: [lol, lmao, lmfao, kekw, omegalul, lul, w, ww, www, omg, pog, poggers, pogchamp, clip, "clip it", "clip that", wtf, "no", nooo, rip, dead, "😂", "💀", icant, "?!"]
+  pre_roll_s: 40          # chat reacts late: cut this much before the spike
+  post_roll_s: 30         # and this much after
+  merge_s: 60             # spikes of one channel closer than this are one moment
+  max_window_s: 100
+  min_len_s: 15           # contiguous video needed; shorter (ad gaps) is dropped
+  chunk_s: 10             # Tier A recording is cut into chunks named by wall-clock time
+  keep_h: 24              # raw recordings and segments are deleted after this
+  tier_b_duration_s: 80   # Tier B: Twitch rewind gives ~30-50 s back, then it records forward to this length
+  loud_z: 1.8

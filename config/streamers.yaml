@@ -1,4 +1,5 @@
-# S5 fills this: name, platform, url, tier, allowed, facecam.
+# S5 fills this: name, platform, channel (Twitch login, default = last part of url or name), url, tier (A = record
+# continuously, B = fetch on chat spike; default B), allowed, facecam. Live mode (S3) reads Twitch entries only.
 # allowed: a note for the user (true / false / null = unknown). It never blocks; the user decides
 # what gets posted. blocklist: streamers we never clip (e.g. after a takedown request).
 # facecam: [x, y, w, h] box in pixels of a frame of size ref [width, height].

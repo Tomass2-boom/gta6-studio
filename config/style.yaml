@@ -33,10 +33,17 @@ layout_c:
   background: blur        # blur | black
   blur: 40
   title_box:
+    style: text           # text = outlined text, no box (default) | box = white rounded box
+    line_colors: [FFFFFF, FF2D2D]   # lines alternate: white, red
+    outline_color: "000000"
+    outline: 12
+    shadow: 5
+    pop_from: 85          # title pops in from this scale (%), like the captions
+    pop_ms: 120
     color: FFFFFF
     text_color: "000000"
-    font_size: 86
-    uppercase: false
+    font_size: 96
+    uppercase: true
     radius: 36
     padding_x: 44
     padding_y: 30

@@ -28,7 +28,7 @@ def facecam_box(streamer: str | None, src_w: int, src_h: int) -> tuple[int, int,
     return None
 
 
-def _edge(f, x, y, w, h) -> bool:
+def _edge(f, x, y, w, h, all_sides: bool = False) -> bool:
     """A cam overlay leaves a sharp straight line at its right/bottom edge that the game picture lacks."""
     src_h, src_w = f.shape
     ok = []
@@ -38,6 +38,13 @@ def _edge(f, x, y, w, h) -> bool:
     if y + h + 14 < src_h:
         row = lambda r: np.abs(f[r + 1, x + 4:x + w - 4] - f[r - 1, x + 4:x + w - 4]).mean()
         ok.append(max(row(y + h + d) for d in (-2, -1, 0, 1)) > 2.5 * np.median([row(y + h + d) for d in (-12, -9, -6, 6, 9, 12)]) + 3)
+    if all_sides:  # auto-detected boxes: also test the left/top border when the cam floats away from the screen edge
+        if x > 14:
+            col = lambda c: np.abs(f[y + 4:y + h - 4, c + 1] - f[y + 4:y + h - 4, c - 1]).mean()
+            ok.append(max(col(x + d) for d in (-2, -1, 0, 1)) > 2.5 * np.median([col(x + d) for d in (-12, -9, -6, 6, 9, 12)]) + 3)
+        if y > 14:
+            row = lambda r: np.abs(f[r + 1, x + 4:x + w - 4] - f[r - 1, x + 4:x + w - 4]).mean()
+            ok.append(max(row(y + d) for d in (-2, -1, 0, 1)) > 2.5 * np.median([row(y + d) for d in (-12, -9, -6, 6, 9, 12)]) + 3)
     return bool(ok) and all(ok)
 
 
