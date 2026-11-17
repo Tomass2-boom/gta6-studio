@@ -6,6 +6,21 @@ Start the new session with: "Read PLAN.md and CLAUDE.md and .claude/handoff.md, 
 GTA 6 unlocks at midnight local time: NZ Wed Nov 18 11:00 UTC, AU east 13:00 UTC, Central Europe 23:00 UTC,
 UK Thu 00:00 UTC, US Thu 05:00 UTC. Live mode must run on NZ/AU streams by Wed 11:00 UTC.
 
+## S2b built: automatic facecam detection (layout A for streamers without a stored box)
+- `studio/render/facecam.py`: samples 16 frames of the clip, YuNet faces (OpenCV 4.14 headless + `assets/models/
+  face_detection_yunet_2023mar.onnx`, MIT/Apache), keeps the face that stays put (>=40 % of frames), grows the cam box
+  from straight border lines around it (outermost/strongest/nearest line, or the screen edge), then confirms with
+  `layout._edge(all_sides=True)` on the cam-on frames (>=60 %). ~1.3 s per clip.
+- `choose_layout()` order: `streamers.yaml` box -> `data/facecams.json` cache -> auto-detect -> layout B. Cache is per
+  streamer (box scaled to any resolution); a "no cam" result is only trusted for the same video. Delete an entry to retry.
+- Tested: xQc VOD, 5 windows -> (0,0,377,283) at 1080p vs stored (0,0,375,282). Real GTA streams: Video Kames top-left
+  found (0,0,386,307). Correctly "none" (-> B): Louu (full-screen cam), Jynxzi (green-screen cutout, no rectangle),
+  Soup (no cam). NOT found: Summit1G (ornate frame; the border check is too strict for it, so he gets B). Other
+  corners are covered only by synthetic tests (4 corners), no real bottom/right-corner stream was found to test.
+- Limits: needs a rectangular overlay with a visible border; green-screen/cutout cams and full-screen cams get B.
+  `cam_timeline` still uses `_edge` per second, so ornate overlays would also read as "cam off".
+- Tests: `tests/test_facecam.py` (fixture `tests/fixtures/xqc_cam.mp4`, 1280x720, 16 s).
+
 ## S3 built: `studio live [--channels lirik:A,gaules:B] [--model m]`
 - `studio/chat/twitch.py` anonymous IRC reader (plain asyncio socket, justinfan, reconnects; every chat saved to
   `data/chat/<chan>-<date>.jsonl`, usable as test fixtures / analytics).

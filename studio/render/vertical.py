@@ -6,6 +6,7 @@ import tempfile
 from ..config import DATA, load
 from .captions import FONTS, build_ass
 from . import layout as L
+from . import facecam as FC
 
 
 def _mix_pick(style: dict, key: str) -> str | None:
@@ -27,20 +28,21 @@ def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, fo
         pick = _mix_pick(style, key)
         if pick in ("B", "C"):
             return pick, None, [], "layout_mix experiment"
-        if pick == "A":
-            want = "A" if L.facecam_box(src["streamer"], w, h) else "AUTO"
     cam = L.facecam_box(src["streamer"], w, h)
+    how = "from streamers.yaml" if cam else None
+    if want in ("AUTO", "A") and not cam:  # no hand-entered box: stored or auto-detected one
+        cam, how = FC.auto_box(src["streamer"], src["path"], a, b, w, h)
     if want in ("AUTO", "A"):
         if not cam:
             if want == "A":
-                raise ValueError("layout A needs a facecam box in streamers.yaml")
-            return "B", None, [], "no facecam box for streamer"
+                raise ValueError(f"layout A needs a facecam box ({how})")
+            return "B", None, [], how
         tl = L.cam_timeline(src["path"], a, b, cam, w, h)
         share = sum(tl) / max(1, len(tl))
         if want == "AUTO" and share < style["layout_a"]["cam_presence"]:
             return "B", None, [], f"cam seen in only {share:.0%} of the clip"
         off = L.off_ranges(tl, style["layout_a"]["switch_min_s"])
-        return "A", cam, off, f"cam seen in {share:.0%} of the clip, B during {off}"
+        return "A", cam, off, f"cam {how}; seen in {share:.0%} of the clip, B during {off}"
     return want, cam, [], "forced"
 
 

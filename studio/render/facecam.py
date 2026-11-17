@@ -74,54 +74,55 @@ def stable_face(faces: list[list[tuple]], w: int):
     return tuple(int(np.median([g[k] for g in best])) for k in range(4)), share, best_idx
 
 
-def _peak(prof: np.ndarray, lo: int, hi: int) -> int | None:
-    """Index of the strongest straight edge in prof[lo:hi], or None if it does not stand out."""
+def _peaks(prof: np.ndarray, lo: int, hi: int) -> list[tuple[int, float]]:
+    """Straight edges in prof[lo:hi]: local maxima that stand out from their surroundings."""
     lo, hi = max(lo, 14), min(hi, len(prof) - 14)
-    if hi <= lo:
-        return None
-    i = lo + int(np.argmax(prof[lo:hi]))
-    bg = np.median(np.concatenate([prof[max(0, i - 40): i - 8], prof[i + 8: i + 40]]))
-    return i if prof[i] > 2.5 * bg + 3 else None
+    out = []
+    for i in range(lo, hi):
+        if prof[i] < prof[max(0, i - 3): i + 4].max():
+            continue
+        bg = np.median(np.concatenate([prof[max(0, i - 40): i - 8], prof[i + 8: i + 40]]))
+        if prof[i] > 2.5 * bg + 3:
+            out.append((i, float(prof[i])))
+    return out
 
 
-def find_box(gray: np.ndarray, face: tuple, reach: float = 3.5) -> tuple[int, int, int, int] | None:
-    """Grow the cam rectangle around `face` from straight border lines. gray: (n, h, w) float32."""
+def find_boxes(gray: np.ndarray, face: tuple, reach: float = 3.5) -> list[tuple[int, int, int, int]]:
+    """Grow the cam rectangle around `face` from straight border lines. gray: (n, h, w) float32.
+    Per side the options are the outermost strong line (the cam border lies outside interior clutter
+    like posters) and the screen edge when it is near. Candidates come back best-guess first; the
+    caller keeps the first one whose border lines are really there."""
     n, H, W = gray.shape
     fx, fy, fw, fh = face
-    r0, r1 = max(0, fy), min(H, fy + fh)    # rows over the face
-    c0, c1 = max(0, fx), min(W, fx + fw)    # columns over the face
-
-    def cols():  # strength of a vertical line at each column; straight lines win (median over rows)
-        d = np.abs(np.diff(gray[:, r0:r1, :], axis=2))
-        return np.median(d, axis=1).mean(axis=0)  # (W-1,), index c = edge between c and c+1
-
-    def rows():
-        d = np.abs(np.diff(gray[:, :, c0:c1], axis=1))
-        return np.median(d, axis=2).mean(axis=0)  # (H-1,)
-
-    pc, pr = cols(), rows()
-    reach_x, reach_y = int(reach * fw), int(reach * fw)
+    r0, r1 = max(0, fy), min(H, fy + fh)
+    c0, c1 = max(0, fx), min(W, fx + fw)
+    # strength of a straight line at each column / row: median over the face band, mean over frames
+    pc = np.median(np.abs(np.diff(gray[:, r0:r1, :], axis=2)), axis=1).mean(axis=0)
+    pr = np.median(np.abs(np.diff(gray[:, :, c0:c1], axis=1)), axis=2).mean(axis=0)
+    reach = int(reach * fw)
     out = []
-    for prof, size, lo_side, hi_side, reach_ in ((pc, W, fx, fx + fw, reach_x), (pr, H, fy, fy + fh, reach_y)):
-        # low edge: search toward 0; high edge: toward the far side
-        lo = _peak(prof, lo_side - reach_, lo_side)
-        lo_e = lo + 1 if lo is not None else (0 if lo_side <= reach_ else None)
-        hi = _peak(prof, hi_side, hi_side + reach_)
-        hi_e = size if (hi is None and size - hi_side <= reach_) else (hi + 1 if hi is not None else None)
-        if hi_e is not None and size - hi_e <= EDGE_PAD:
-            hi_e = size
-        if lo_e is not None and lo_e <= EDGE_PAD:
-            lo_e = 0
-        if lo_e is None or hi_e is None:
-            return None
-        out.append((lo_e, hi_e))
-    (x0, x1), (y0, y1) = out
-    w, h = x1 - x0, y1 - y0
-    if not (0.08 * W <= w <= 0.5 * W and 0.12 * H <= h <= 0.6 * H) or w * h > 0.3 * W * H:
-        return None
-    if not (x0 <= fx and x1 >= fx + fw and y0 <= fy and y1 >= fy + fh):
-        return None
-    return x0, y0, w, h
+    for prof, size, lo_side, hi_side in ((pc, W, fx, fx + fw), (pr, H, fy, fy + fh)):
+        m = int(0.15 * fw)  # the face outline itself is not a border
+        lows, highs = _peaks(prof, lo_side - reach, lo_side - m), _peaks(prof, hi_side + m, hi_side + reach)
+        ref = max([v for _, v in lows + highs] or [0])
+        lows, highs = [(i, v) for i, v in lows if v >= 0.5 * ref], [(i, v) for i, v in highs if v >= 0.5 * ref]
+        # options: outermost line, strongest line, nearest line, then the screen edge
+        lo_o = ([min(lows)[0] + 1, max(lows, key=lambda p: p[1])[0] + 1, max(lows)[0] + 1] if lows else []) + ([0] if lo_side <= reach else [])
+        hi_o = ([max(highs)[0] + 1, max(highs, key=lambda p: p[1])[0] + 1, min(highs)[0] + 1] if highs else []) + ([size] if size - hi_side <= reach else [])
+        lo_o, hi_o = list(dict.fromkeys(lo_o)), list(dict.fromkeys(hi_o))
+        if not lo_o or not hi_o:
+            return []
+        out.append(([0 if v <= EDGE_PAD else v for v in lo_o], [size if size - v <= EDGE_PAD else v for v in hi_o]))
+    cands = []  # (the first option on each side is tried first)
+    for y0 in out[1][0]:
+        for y1 in out[1][1]:
+            for x0 in out[0][0]:
+                for x1 in out[0][1]:
+                    w, h = x1 - x0, y1 - y0
+                    if 0.08 * W <= w <= 0.5 * W and 0.12 * H <= h <= 0.6 * H and w * h <= 0.3 * W * H:
+                        if (x0, y0, w, h) not in cands:
+                            cands.append((x0, y0, w, h))
+    return cands
 
 
 def _confirm(gray: np.ndarray, box) -> float:
@@ -143,10 +144,11 @@ def detect(video: str, a: float, b: float, w: int, h: int) -> dict:
         return {"box": None, "why": f"no stable face ({seen}/{len(frames)} frames had any face)"}
     face, share, idx = st
     gray = np.stack([cv2.cvtColor(f, cv2.COLOR_BGR2GRAY) for f in frames]).astype(np.float32)
-    box = find_box(gray[idx], face)  # only frames where the cam was on
-    if not box:
+    cands = find_boxes(gray[idx], face)  # only frames where the cam was on
+    if not cands:
         return {"box": None, "face": list(face), "why": "stable face but no cam border found around it"}
-    conf = _confirm(gray[idx], box)
+    scored = [(_confirm(gray[idx], c), c) for c in cands]
+    conf, box = next(((s, c) for s, c in scored if s >= 0.6), max(scored))
     if conf < 0.6:
         return {"box": None, "face": list(face), "box_tried": list(box),
                 "why": f"border lines present in only {conf:.0%} of frames"}
