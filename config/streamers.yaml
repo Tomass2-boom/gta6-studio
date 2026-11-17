@@ -39,6 +39,49 @@ streamers:
     note: "Australian GTA V speedrunner/challenge creator; ~870-930 avg viewers per TwitchMetrics (date unknown). Ranked #19 English GTA V channels (30 days). Slug unverified live"
   # Not added yet (weak evidence): aus24 (Twitch, StreamsCharts shows no activity in 30 days, last GTA RP stream Feb 2025);
   # Whippy (Australian GTA streamer, Twitch exclusive contract, slug not confirmed). Check before adding.
+  # --- Biggest English-speaking GTA audiences (Streams Charts 2026 hours watched, article 2026-11-16) ---
+  # Twitch slugs confirmed on TwitchTracker 2026-11-17 (Partner, English). Kick slugs NOT checked (Streams Charts 403).
+  # US unlock is Thu 05:00 UTC, so expect these from then, earlier only if they use the NZ trick.
+  - name: xQc
+    platform: twitch
+    channel: xqc
+    tier: A
+    allowed: null
+    facecam: [0, 0, 250, 188]
+    ref: [1280, 720]
+    note: "#1 English GTA creator, 22.7M hours in 2026 (Twitch + Kick; Kick slug unchecked)"
+  - name: Jynxzi
+    platform: twitch
+    channel: jynxzi
+    tier: B
+    allowed: null
+    note: "named in the 2026 GTA dataset; big English variety audience"
+  - name: summit1g
+    platform: twitch
+    channel: summit1g
+    tier: B
+    allowed: null
+    note: "named in the 2026 GTA dataset; long GTA history"
+  - name: dasMEHDI
+    platform: twitch
+    channel: dasmehdi
+    tier: B
+    allowed: null
+    note: "#4 English GTA creator, 8.0M hours in 2026, mostly GTA RP (Twitch + Kick; Kick slug unchecked)"
+  # YouTube's own 24 h launch show, ~30 creators (Jake Baldino, Cinna, Jelly, Rivers, Caylus, Zhong, Kat), pre-show by RDCWorld.
+  # Pre-show Thu 04:00 UTC, main show Thu Nov 19 05:00 UTC. live: false until the real live URL is known:
+  # check youtube.com/youtube on Thursday, then set live: true (or use platform/channel syntax). Per-creator cut-ins mean clips
+  # show several creators: check the layout and copyright (YouTube-owned show) before posting.
+  - name: YouTube GTA VI Launch Show
+    platform: youtube
+    channel: YouTube
+    live: false
+    tier: A
+    allowed: null
+    note: "unverified URL; flip live to true when the stream is up"
+  # Skipped on purpose: Buddha (Twitch slug buddha exists but not shown to be the GTA RP creator), Lord Kebun (slug not found),
+  # Joshimuz (cutscene% speedrun, breaks the no-cutscene rule), 3mr / sxb / drb7h (huge Kick GTA creators but Arabic, English-only judge),
+  # Kai Cenat is already above.
   # --- Europe / US window ---
   - name: IShowSpeed
     platform: youtube
