@@ -2,7 +2,8 @@
 
 Chat for all channels is read over one anonymous Twitch IRC connection. Tier A channels are recorded
 continuously (chunks named by wall-clock time); Tier B channels are fetched from Twitch's rewind at the spike.
-Only Twitch works so far (YouTube, Kick: S7).
+Twitch, Kick and YouTube can be recorded. Channels without a chat reader (see CHAT_READERS) get a loudness
+trigger on their own recording instead (detect/loud.py).
 """
 import asyncio
 import json
@@ -19,7 +20,12 @@ from .chat import twitch
 from .config import DATA, load
 from .detect import signals
 from .detect.chat import ChatDetector
+from .detect.loud import LoudDetector
 from .ingest import live as vid
+
+
+CHAT_READERS = {"twitch"}   # platforms with a chat reader in studio/chat/
+PLATFORMS = {"twitch", "kick", "youtube"}
 
 
 def resolve_channels(arg: str | None, lg) -> list[dict]:
@@ -30,19 +36,26 @@ def resolve_channels(arg: str | None, lg) -> list[dict]:
     if arg:
         for it in arg.split(","):
             ch, _, tier = it.strip().partition(":")
-            out.append({"name": ch, "channel": ch.lower(), "platform": "twitch", "tier": (tier or "B").upper()})
+            plat, _, ch = ch.rpartition("/")          # kick/destiny:A, youtube/IShowSpeed:A, lirik:B (= Twitch)
+            out.append({"name": ch, "channel": ch.lower(), "platform": (plat or "twitch").lower(),
+                        "tier": (tier or "B").upper()})
     else:
         for e in s.get("streamers", []):
             ch = e.get("channel") or (e.get("url") or "").rstrip("/").split("/")[-1] or e["name"]
             out.append({"name": e["name"], "channel": ch.lower(), "platform": e.get("platform", "twitch"),
-                        "tier": str(e.get("tier", "B")).upper()})
+                        "tier": str(e.get("tier", "B")).upper(), "live": e.get("live", True)})
     keep = []
     for e in out:
         if e["name"].lower() in block or e["channel"] in block:
             lg.warning("%s is on the blocklist: not watched", e["name"])
-        elif e["platform"] != "twitch":
-            lg.warning("%s (%s): only Twitch is supported in live mode so far (S7)", e["name"], e["platform"])
+        elif e.get("live") is False:
+            lg.info("%s has live: false (VOD test source): not watched", e["name"])
+        elif e["platform"] not in PLATFORMS:
+            lg.warning("%s: unknown platform %r, skipped", e["name"], e["platform"])
         else:
+            if e["platform"] != "twitch" and e["tier"] != "A":
+                lg.warning("%s (%s): no rewind for Tier B yet, recording it continuously (Tier A)", e["name"], e["platform"])
+                e["tier"] = "A"
             keep.append(e)
     return keep
 
@@ -54,6 +67,8 @@ class Live:
         self.lg, self.model = lg, model
         self.chans = {c["channel"]: c for c in chans}
         self.det = ChatDetector(self.L["chat"])
+        self.loud = LoudDetector(self.L["loud"])
+        self.loud_done: dict[str, float] = {}   # channel -> start of the last chunk already measured
         self.pending: dict[str, dict] = {}   # channel -> spike group waiting for its video
         self.recent: dict[str, list] = {}    # channel -> moments already cut: [{lo, hi, mid, extra}]
         self.todo: queue.Queue = queue.Queue()
@@ -67,8 +82,8 @@ class Live:
 
     def on_spike(self, sp):
         ch, L = sp.channel, self.L
-        self.lg.info("SPIKE %s x%.1f (burst %.0f vs normal %.1f, hype %.0f%%)", ch, sp.strength, sp.burst,
-                     sp.baseline, 100 * sp.hype_share)
+        self.lg.info("SPIKE(%s) %s x%.1f (burst %.2f vs normal %.2f, hype %.0f%%)", sp.kind, ch, sp.strength,
+                     sp.burst, sp.baseline, 100 * sp.hype_share)
         for r in self.recent.get(ch, []):          # same moment, already cut: merge
             if r["lo"] <= sp.t <= r["hi"] + L["merge_s"]:
                 r["extra"].append(sp)
@@ -86,7 +101,7 @@ class Live:
         con = db.connect()
         row = con.execute("SELECT signals FROM moments WHERE id=?", (mid,)).fetchone()
         s = json.loads(row["signals"] or "{}")
-        s["chat"] = max(s.get("chat", 0), sp.strength)
+        s[sp.kind] = max(s.get(sp.kind, 0), sp.strength)
         s.setdefault("meta", {}).setdefault("merged_spikes", []).append(round(sp.t))
         db.update(con, mid, signals=s)
 
@@ -112,9 +127,11 @@ class Live:
         first, last = p["first"], p["last"]
         spikes = p["spikes"] + entry["extra"]
         url = f"{vid.stream_url(e['platform'], ch)}#live={int(first)}"
-        sig = {"chat": round(max(s.strength for s in spikes), 2), "meta": {
+        sig = {"meta": {
             "spike_wall": [round(s.t) for s in spikes], "hype_share": round(max(s.hype_share for s in spikes), 2),
             "tier": e["tier"], "detected_at": first}}
+        for s in spikes:   # chat / loud: the strongest spike of each kind
+            sig[s.kind] = round(max(sig.get(s.kind, 0), s.strength), 2)
         title = f"{e['name']} live {datetime.fromtimestamp(first, timezone.utc):%Y-%m-%d %H:%MZ}"
         cur = con.execute("INSERT INTO sources(url,platform,streamer,title) VALUES(?,?,?,?)",
                           (url, e["platform"], e["name"], title))
@@ -173,6 +190,37 @@ class Live:
             self.lg.info("%s recorder stopped (offline?)", ch)
             await asyncio.sleep(2 if time.time() - t0 > 120 else 60)
 
+    def uses_loud(self, ch) -> bool:
+        mode, e = self.L.get("loud_trigger", "no_chat"), self.chans[ch]
+        return e["tier"] == "A" and (mode == "always" or (mode == "no_chat" and e["platform"] not in CHAT_READERS))
+
+    def measure_new_chunks(self, ch):
+        """Blocking (ffmpeg): loudness of each finished chunk not measured yet -> spikes."""
+        L, out = self.L, []
+        now = time.time()
+        done = self.loud_done.get(ch)
+        for t, path in vid.chunks(ch, now - 3 * L["chunk_s"] if done is None else done, now, L["chunk_s"]):
+            if done is not None and t <= done:
+                continue
+            try:
+                rms = signals.loudness_per_second(str(path))
+            except Exception:
+                self.lg.warning("%s: loudness of %s failed, skipped", ch, path.name)
+                rms = []
+            if len(rms):
+                out += self.loud.feed(ch, t, rms)
+            self.loud_done[ch] = t
+        return out
+
+    async def watch_loudness(self, ch):
+        while True:
+            await asyncio.sleep(self.L["chunk_s"] / 2)
+            try:
+                for sp in await asyncio.to_thread(self.measure_new_chunks, ch):
+                    self.on_spike(sp)
+            except Exception:
+                self.lg.exception("%s loudness watcher error (continuing)", ch)
+
     async def loop(self):
         n = 0
         while True:
@@ -185,8 +233,10 @@ class Live:
                 self.lg.info("deleted %d old raw files", vid.cleanup(self.L["keep_h"]))
 
     async def main(self):
-        tasks = [twitch.read(list(self.chans), self.on_message, self.lg), self.loop()]
+        tw = [c for c, e in self.chans.items() if e["platform"] == "twitch"]
+        tasks = ([twitch.read(tw, self.on_message, self.lg)] if tw else []) + [self.loop()]
         tasks += [self.supervise(c) for c, e in self.chans.items() if e["tier"] == "A"]
+        tasks += [self.watch_loudness(c) for c in self.chans if self.uses_loud(c)]
         threading.Thread(target=self.worker, daemon=True).start()
         await asyncio.gather(*tasks)
 
@@ -196,7 +246,7 @@ def run(channels: str | None, model: str | None):
     lg = log("live")
     chans = resolve_channels(channels, lg)
     if not chans:
-        raise typer.Exit("No Twitch channels to watch. Fill config/streamers.yaml (S5) or pass --channels a:A,b:B")
+        raise typer.Exit("No channels to watch. Fill config/streamers.yaml (S5) or pass --channels a:A,b:B")
     lg.info("watching %s", ", ".join(f"{c['name']}(tier {c['tier']})" for c in chans))
     lv = Live(chans, model, lg)
     try:

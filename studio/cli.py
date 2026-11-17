@@ -165,7 +165,7 @@ def moments():
 
 
 @app.command()
-def live(channels: str = typer.Option(None, help="Ad hoc channels instead of streamers.yaml, e.g. lirik:A,gaules:B"),
+def live(channels: str = typer.Option(None, help="Ad hoc channels instead of streamers.yaml, e.g. lirik:A,gaules:B or kick/destiny:A,youtube/IShowSpeed:A"),
          model: str = typer.Option(None, help="Override judge model")):
     """Live mode: watch chat, record Tier A, fetch Tier B on spikes, turn spikes into clips. Ctrl-C stops."""
     from .live import run

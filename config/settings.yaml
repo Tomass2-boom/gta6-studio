@@ -40,6 +40,15 @@ live:
     baseline_bins: 60     # baseline = median of the last 10 minutes
     hype_weight: 3        # LOL / W / OMG / clip it / laugh emotes count this much, other messages 1
     hype_words: [lol, lmao, lmfao, kekw, omegalul, lul, w, ww, www, omg, pog, poggers, pogchamp, clip, "clip it", "clip that", wtf, "no", nooo, rip, dead, "😂", "💀", icant, "?!"]
+  loud_trigger: no_chat   # loudness trigger on the live recording: no_chat (only channels without a chat reader) | always | off
+  loud:
+    bin_s: 1              # loudness is measured per second of each finished chunk
+    burst_s: 6            # median of the last 6 s (one bang alone does not fire) ...
+    z: 4.0                # ... must be this many robust std-devs above the channel's own normal
+    min_ratio: 1.6        # and at least this many times its median loudness
+    baseline_s: 600       # normal = median of the last 10 minutes
+    warmup_s: 90          # no triggers in the first 90 s of watching a channel
+    cooldown_s: 20        # one trigger per burst
   pre_roll_s: 40          # chat reacts late: cut this much before the spike
   post_roll_s: 30         # and this much after
   merge_s: 60             # spikes of one channel closer than this are one moment

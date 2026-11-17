@@ -5,7 +5,9 @@
 # facecam: [x, y, w, h] box in pixels of a frame of size ref [width, height].
 # Launch prep 2026-11-17: entries below are ordered by when they are expected to go live.
 # "reported" = seen in news/social posts, not confirmed by the streamer. S5 verifies slugs and adds AU/NZ names.
-# Until S7 lands, live mode only follows platform: twitch; kick/youtube entries are skipped with a warning.
+# Live mode records twitch, kick and youtube. Kick/YouTube have no chat reader yet: a loudness trigger on the
+# recording fires instead (settings.yaml live.loud). Non-Twitch Tier B entries are recorded as Tier A.
+# Entries with live: false are skipped.
 streamers:
   # --- NZ window, Wed Nov 18 11:00 UTC (12:00 CET) ---
   - name: N3on

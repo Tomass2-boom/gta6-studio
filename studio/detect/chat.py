@@ -17,6 +17,7 @@ class Spike:
     burst: float
     baseline: float
     hype_share: float
+    kind: str = "chat"   # which signal fired: chat | loud
 
 
 @dataclass

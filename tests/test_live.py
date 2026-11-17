@@ -47,3 +47,17 @@ def test_ad_gap_splits_recording():
     starts = [0, 10, 20, 30, 100, 110, 120, 130, 140, 150]   # 60 s hole (ad break)
     assert contiguous_run(starts, 125, 10) == (4, 10)
     assert contiguous_run(starts, 32, 10) == (0, 4)
+
+
+def test_loud_detector_fires_once_on_burst_not_on_steady_noise():
+    import numpy as np
+    from studio.detect.loud import LoudDetector
+    cfg = load("settings")["live"]["loud"]
+    rng = np.random.default_rng(1)
+    base = 0.05 + 0.01 * rng.standard_normal(400)
+    d = LoudDetector(cfg)
+    assert d.feed("c", 1000, base) == []
+    burst = np.concatenate([np.full(8, 0.3), 0.05 + 0.01 * rng.standard_normal(40)])
+    sp = d.feed("c", 1400, burst)
+    assert len(sp) == 1 and sp[0].kind == "loud" and 1400 <= sp[0].t <= 1420 and sp[0].strength > 3
+    assert LoudDetector(cfg).feed("c", 0, 0.2 + 0.03 * rng.standard_normal(600)) == []   # always-loud stream

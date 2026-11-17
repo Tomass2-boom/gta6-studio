@@ -26,7 +26,8 @@ def start_recording(platform: str, channel: str, chunk_s: int) -> subprocess.Pop
     d = RAW / channel
     d.mkdir(parents=True, exist_ok=True)
     ff = tools()[0]
-    cmd = (f'streamlink -O --twitch-low-latency "{stream_url(platform, channel)}" best 2>/dev/null | '
+    low = "--twitch-low-latency " if platform == "twitch" else ""
+    cmd = (f'streamlink -O {low}"{stream_url(platform, channel)}" best 2>/dev/null | '
            f'"{ff}" -v error -i - -c copy -f segment -segment_time {chunk_s} -strftime 1 '
            f'-reset_timestamps 1 "{d}/%s.ts"')
     return subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -81,7 +82,7 @@ def fetch_rewind(platform: str, channel: str, seconds: int, out: Path, min_len: 
     out.parent.mkdir(parents=True, exist_ok=True)
     raw = out.with_suffix(".raw.ts")
     started = time.time()
-    subprocess.run(["streamlink", "--hls-live-restart", "--hls-duration", str(seconds), "--twitch-low-latency",
+    subprocess.run(["streamlink", "--hls-live-restart", "--hls-duration", str(seconds), *(["--twitch-low-latency"] if platform == "twitch" else []),
                     "-o", str(raw), "-f", stream_url(platform, channel), "best"],
                    check=True, capture_output=True, timeout=seconds + 120)
     # remux with timestamps from zero: ffprobe on the raw .ts reports a wrong duration (measured)
