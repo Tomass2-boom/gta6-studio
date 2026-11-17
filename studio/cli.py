@@ -173,6 +173,29 @@ def live(channels: str = typer.Option(None, help="Ad hoc channels instead of str
 
 
 @app.command()
+def mark(clip: str = typer.Argument(..., help="Clip name, e.g. 1_1563 (the file name in data/clips without .mp4)"),
+         t: float = typer.Argument(None, help="Seconds into the clip"),
+         x: float = typer.Argument(None, help="0-1 across the finished clip (left to right)"),
+         y: float = typer.Argument(None, help="0-1 down the finished clip (top to bottom)"),
+         kind: str = typer.Option("circle", help="circle or arrow"),
+         size: float = typer.Option(0.08, help="circle radius as a share of the clip width"),
+         none: bool = typer.Option(False, "--none", help="This clip gets no marks (overrides auto)"),
+         clear: bool = typer.Option(False, "--clear", help="Forget hand-set marks (back to auto)")):
+    """Set a circle/arrow by hand (needs marks.enabled in style.yaml). Re-render the clip afterwards."""
+    from .render import marks as M
+    if clear:
+        M.set_manual(clip, None)
+    elif none:
+        M.set_manual(clip, [])
+    else:
+        if None in (t, x, y):
+            raise typer.BadParameter("give T X Y, or --none / --clear")
+        cur = M.manual(clip) or []
+        M.set_manual(clip, cur + [{"t": t, "x": x, "y": y, "r": size, "kind": kind, "space": "out"}])
+    typer.echo(f"{clip}: {M.manual(clip)}")
+
+
+@app.command()
 def review():
     typer.echo("Review page arrives in S4.")
 

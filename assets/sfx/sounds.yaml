@@ -1,0 +1,14 @@
+# Sound metadata, copied from wyzowl/sfx-kit sounds.json (CC0). One entry per file in this folder.
+# sync: seconds into the file where the sound 'meets' its moment (start the file at moment - sync).
+# lufs: loudness of its loudest 150 ms. under_voice_db: how far the kit suggests lowering it under speech.
+
+whoosh-fast-soft: {file: whoosh-fast-soft.wav, sync: 0.099, duration: 0.25, lufs: -24, under_voice_db: -2}  # A quick, gentle puff of air with a soft edge and no weight.
+move-spring: {file: move-spring.wav, sync: 0, duration: 0.899, lufs: -24, under_voice_db: -3}  # A coiled spring flicked: a wobbling boing.
+impact-deep-hard: {file: impact-deep-hard.wav, sync: 0.01, duration: 1.205, lufs: -19, under_voice_db: -7}  # A deep, hard hit: a crisp crack over a heavy, rumbling low end.
+impact-heavy-hard: {file: impact-heavy-hard.wav, sync: 0.01, duration: 0.3, lufs: -19, under_voice_db: -4}  # A big, solid hit: crisp on top and deep underneath.
+boom-hit-medium: {file: boom-hit-medium.wav, sync: 0.038, duration: 1.301, lufs: -24.5, under_voice_db: -8}  # A deep, rounded boom with a warm hall.
+boom-hit-soft: {file: boom-hit-soft.wav, sync: 0.031, duration: 1.02, lufs: -27, under_voice_db: -8}  # A soft, deep boom: a big drum struck gently in a hall.
+pop-large-bubble: {file: pop-large-bubble.wav, sync: 0.011, duration: 0.208, lufs: -20, under_voice_db: -2}  # A deep, round bubble bloop.
+notification-failure-deflate: {file: notification-failure-deflate.wav, sync: 0.002, duration: 0.541, lufs: -23.5, under_voice_db: -3}  # Air whistling down, like a balloon letting go: a playful fail.
+notification-failure-wobble: {file: notification-failure-wobble.wav, sync: 0, duration: 0.535, lufs: -23.5, under_voice_db: -3}  # A kalimba note bending down as it rings: womp.
+digital-glitch-clear: {file: digital-glitch-clear.wav, sync: 0.018, duration: 0.24, lufs: -22, under_voice_db: -2}  # A crisp little glitch, stepping in pitch.

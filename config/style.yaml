@@ -27,6 +27,7 @@ layout_a:
 
 layout_b:
   gameplay_focus_x: 0.5
+  black_band_to_c: 0.15   # source has a black band this share of its height or more (multi-POV overlays) -> use C
 
 layout_c:
   video_center_y: 0.5     # vertical centre of the 16:9 picture (share of height)
@@ -78,4 +79,75 @@ captions:
   position_c: below_video # just under the picture
 
 reaction_tags: false      # *SECURITY* style tags in silent parts (not built yet)
-sound_effects: false      # off until approved
+# ---- S8 look upgrades. Each is off until you approve it. ----
+
+# Sound effects on key moments, placed from the transcript words and the loudness.
+# Sounds live in assets/sfx/ (CC0, see assets/LICENCES.md and assets/sfx/sounds.yaml).
+sound_effects:
+  enabled: false
+  volume_db: 0            # master gain on all effects (on top of each kind's gain_db)
+  max_per_clip: 2         # subtle: never more than this many
+  min_gap_s: 6            # at least this long between two effects
+  edge_s: 0.6             # no effects this close to the clip start/end
+  intro_whoosh: false     # one soft whoosh at the very start
+  intro_sound: whoosh-fast-soft
+  intro_gain_db: -6
+  # A word trigger only fires when the voice is this many dB above the clip's median loudness
+  # (so a calm "what" does nothing; a shouted one does).
+  word_loud_db: 6
+  kinds:                  # checked in this order of priority when two compete
+    bro_what:
+      phrases: ["bro what", "wait what", "what the fuck", "what the hell", "what the heck", "excuse me",
+                "are you serious", "are you kidding me", "huh", "what"]
+      isolate_s: 0.3      # a one-word phrase ("what") only counts said on its own, with this much pause around it
+      sound: boom-hit-medium
+      gain_db: 8         # file is -24.5 LUFS at its loudest; +8 puts it about 2 dB under the -14 voice
+      at: start           # start | end | peak of the phrase
+    fail:
+      phrases: ["no no no", "no no", "oh no", "i'm dead", "we're dead", "i died", "wasted", "bruh",
+                "i'm done", "nooo", "noo", "it's over", "we lost"]
+      sound: notification-failure-wobble
+      gain_db: 7
+      at: end
+    laugh:                # Whisper usually drops laughter, so this only fires on written laughs
+      phrases: ["haha", "hahaha", "hahahaha", "lmao", "lol", "hehe", "lmfao"]
+      sound: pop-large-bubble
+      gain_db: 1
+      at: start
+    scream:               # no words needed: a very loud burst above the clip's median
+      loud_db: 15
+      min_len_s: 0.3
+      sound: impact-deep-hard
+      gain_db: 0
+      at: end             # right as the scream stops (under its peak the scream hides it)
+
+# Circles / arrows on the thing that matters. Automatic only when one small thing clearly moves
+# on its own at a key moment (most clips get none). Set by hand with `studio mark` (overrides auto).
+marks:
+  enabled: false
+  auto: true
+  kind: circle            # circle | arrow
+  color: FF2D2D
+  outline_color: "000000"
+  thickness: 12
+  show_s: 1.4
+  pop_ms: 140
+  # auto gate: the moving thing must be one compact blob
+  min_area: 0.002         # share of the gameplay area
+  max_area: 0.06
+  min_share: 0.55         # its share of all the motion in the picture
+  min_travel: 1.0         # it must move at least this many of its own sizes during the moment
+                          # (a flickering TV, foliage or lights stay in place and get no mark)
+  max_radius: 150         # px on the output; bigger targets get no circle
+  max_per_clip: 1
+
+# Face tracking: the facecam crop (layout A) follows the face inside the cam box, and clips with no
+# cam box but a big, steady face (full-screen camera) get a gameplay crop that follows the face.
+face_track:
+  enabled: false
+  sample_fps: 5
+  min_face_w: 0.06        # full-screen camera: face at least this share of the frame width
+  presence: 0.4           # ...seen in this share of the samples (missed ones hold the last spot)
+  deadband: 0.06          # ignore face moves smaller than this share of the crop width
+  smooth_s: 0.7           # time constant of the follow (bigger = calmer)
+  max_speed: 0.5          # crop widths per second, at most

@@ -3,10 +3,13 @@ import hashlib
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 from ..config import DATA, load
 from .captions import FONTS, build_ass
 from . import layout as L
 from . import facecam as FC
+from . import marks as M
+from . import sfx as S
 
 
 def _mix_pick(style: dict, key: str) -> str | None:
@@ -18,6 +21,16 @@ def _mix_pick(style: dict, key: str) -> str | None:
         if u < acc:
             return str(lay).upper()
     return None
+
+
+def _b_or_c(style: dict, src: dict, a: float, b: float, w: int, h: int, why: str):
+    """Auto fallback B, unless the source has a big black band (multi-POV overlays): then C shows it whole."""
+    lim = style.get("layout_b", {}).get("black_band_to_c")
+    if lim:
+        band = L.black_band(src["path"], a, b, w, h)
+        if band >= lim:
+            return "C", None, [], f"{why}; black band {band:.0%} of the height, so C"
+    return "B", None, [], why
 
 
 def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, force: str | None = None,
@@ -36,43 +49,155 @@ def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, fo
         if not cam:
             if want == "A":
                 raise ValueError(f"layout A needs a facecam box ({how})")
-            return "B", None, [], how
+            return _b_or_c(style, src, a, b, w, h, how)
         tl = L.cam_timeline(src["path"], a, b, cam, w, h)
         share = sum(tl) / max(1, len(tl))
         if want == "AUTO" and share < style["layout_a"]["cam_presence"]:
-            return "B", None, [], f"cam seen in only {share:.0%} of the clip"
+            return _b_or_c(style, src, a, b, w, h, f"cam seen in only {share:.0%} of the clip")
         off = L.off_ranges(tl, style["layout_a"]["switch_min_s"])
         return "A", cam, off, f"cam {how}; seen in {share:.0%} of the clip, B during {off}"
     return want, cam, [], "forced"
 
 
+def _track(style: dict, src: dict, a: float, b: float, w: int, h: int, lay: str, cam, off, d: str, info: dict):
+    """Face-tracking sendcmd scripts for the crops, or {} (no tracking). Writes the scripts into d."""
+    cfg = style.get("face_track") or {}
+    if not cfg.get("enabled") or lay not in ("A", "B"):
+        return {}
+    from . import facetrack as T
+    fps = style["output"]["fps"]
+    dur = b - a
+    _, geo = L.build(lay, style, w, h, cam)
+    tr = {}
+    if lay == "A":
+        cw, ch, (bx, by, bw, bh) = geo["cam_crop"]
+        if bw - cw < 4 and bh - ch < 4:
+            info["face_track"] = "cam box has the crop's shape: nothing to follow"
+            return {}
+        times, best = T.faces_over_time(src["path"], a, b, w, h, cfg.get("sample_fps", 5), (bx, by, bw, bh))
+        seen = sum(f is not None for f in best) / max(1, len(best))
+        if seen < 0.3:
+            info["face_track"] = f"face seen in only {seen:.0%} of samples: not tracked"
+            return {}
+        cmds, xy, stats = [], [], {}
+        for axis, key, crop, lo, hi in ((0, "x", cw, bx, bx + bw - cw), (1, "y", ch, by, by + bh - ch)):
+            if hi - lo < 4:
+                xy.append(lo)
+                continue
+            path = T.smooth_path(times, T.centres(best, axis), crop, lo, hi, fps, dur, cfg)
+            cmds.append(T.sendcmd("crop@cam", key, path, fps))
+            xy.append(int(round(path[0])) // 2 * 2)
+            stats[key] = T.jitter(path)
+        f = os.path.join(d, "cam.cmd")
+        open(f, "w").write("".join(cmds))
+        tr = {"cam": f, "cam_xy": tuple(xy)}
+        info["face_track"] = {"mode": "cam box", "seen": round(seen, 2), **stats}
+    elif not cam:
+        gw, gh = geo["game_crop"]
+        times, best = T.faces_over_time(src["path"], a, b, w, h, cfg.get("sample_fps", 5))
+        if not T.full_frame_face(times, best, w, cfg):
+            info["face_track"] = "no big steady face (not a full-screen camera)"
+            return {}
+        path = T.smooth_path(times, T.centres(best, 0), gw, 0, w - gw, fps, dur, cfg)
+        f = os.path.join(d, "game.cmd")
+        open(f, "w").write(T.sendcmd("crop@game", "x", path, fps))
+        tr = {"game": f, "game_xy": (int(round(path[0])) // 2 * 2, 0), "game_path": path}
+        info["face_track"] = {"mode": "full-screen face", **T.jitter(path)}
+    return tr
+
+
+def ffmpeg_cmd(ffmpeg: str, src_path: str, a: float, b: float, vf: str, af: str, crf, out: str,
+               sfx_args: list | None = None, sfx_graph: str | None = None) -> list[str]:
+    """The ffmpeg call. Without effects this is exactly the pre-S8 command (voice through -af)."""
+    head = [ffmpeg, "-v", "error", "-y", "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", src_path]
+    if sfx_graph:
+        mid = sfx_args + ["-filter_complex", f"{vf};{sfx_graph}", "-map", "[v]", "-map", "[a]"]
+    else:
+        mid = ["-filter_complex", vf, "-map", "[v]", "-map", "0:a?", "-af", af]
+    return head + mid + ["-c:v", "libx264", "-preset", "medium", "-crf", str(crf),
+                         "-profile:v", "high", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out]
+
+
 def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str], title: str | None,
-           name: str, force_layout: str | None = None) -> tuple[str, str, str]:
-    """words: [{word,start,end}] in source seconds. Returns (path, layout, note)."""
-    style = load("style")
+           name: str, force_layout: str | None = None, style: dict | None = None, out_dir=None,
+           info: dict | None = None) -> tuple[str, str, str]:
+    """words: [{word,start,end}] in source seconds. Returns (path, layout, note).
+    style: override (default config/style.yaml); out_dir: where to write (default data/clips);
+    info: filled with what the S8 extras did (effects, marks, face tracking)."""
+    style = style or load("style")
+    info = {} if info is None else info
     out = style["output"]
+    W, H = out["width"], out["height"]
     w, h = L.probe(src["path"])
     lay, cam, off, note = choose_layout(style, src, a, b, w, h, force_layout, name)
-    graph, geo = L.build_switching(style, w, h, cam, off) if off else L.build(lay, style, w, h, cam)
     clip_words = [{**x, "start": x["start"] - a, "end": x["end"] - a} for x in words
                   if x["start"] >= a - 0.05 and x["end"] <= b + 0.05]
     ffmpeg = L.tools()[0]
-    dest = DATA / "clips"
+    dest = Path(out_dir) if out_dir else DATA / "clips"
     dest.mkdir(parents=True, exist_ok=True)
     path = dest / f"{name}.mp4"
+    sfx_cfg, mk_cfg = style.get("sound_effects") or {}, style.get("marks") or {}
     with tempfile.TemporaryDirectory() as d:
+        track = _track(style, src, a, b, w, h, lay, cam, off, d, info)
+        graph, geo = (L.build_switching(style, w, h, cam, off, track) if off
+                      else L.build(lay, style, w, h, cam, track))
+        ass_text = build_ass(clip_words, keywords, style, lay, geo, b - a, title)
+        env = None
+        events = []
+        if isinstance(sfx_cfg, dict) and sfx_cfg.get("enabled"):
+            env = S.envelope(src["path"], a, b)
+            events = S.place(clip_words, env, b - a, sfx_cfg) if len(env) else []
+            info["sfx"] = events
+        if isinstance(mk_cfg, dict) and mk_cfg.get("enabled"):
+            ev = _marks(src, a, b, w, h, name, clip_words, env, geo, cam, track, style, info)
+            if ev:
+                ass_text += "\n".join(ev) + "\n"
         ass = os.path.join(d, "c.ass")
-        open(ass, "w").write(build_ass(clip_words, keywords, style, lay, geo, b - a, title))
+        open(ass, "w").write(ass_text)
         fonts = str(FONTS).replace("'", r"\'")
         vf = f"{graph};[base]fps={out['fps']},ass=filename='{ass}':fontsdir='{fonts}',format=yuv420p[v]"
         af = f"loudnorm=I={out['loudness_lufs']}:TP=-1.5:LRA=11,aresample=48000"
+        sfx_args, sfx_graph = S.audio_graph(events, af) if events else (None, None)
         tmp = os.path.join(d, "out.mp4")
-        r = subprocess.run([ffmpeg, "-v", "error", "-y", "-ss", f"{a:.3f}", "-to", f"{b:.3f}", "-i", src["path"],
-                            "-filter_complex", vf, "-map", "[v]", "-map", "0:a?", "-af", af,
-                            "-c:v", "libx264", "-preset", "medium", "-crf", str(out["crf"]),
-                            "-profile:v", "high", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", tmp],
+        r = subprocess.run(ffmpeg_cmd(ffmpeg, src["path"], a, b, vf, af, out["crf"], tmp, sfx_args, sfx_graph),
                            capture_output=True, text=True)
         if r.returncode:
             raise RuntimeError(f"ffmpeg failed: {r.stderr[-800:]}")
         os.replace(tmp, path)
-    return str(path), lay, note
+    extra = {k: info[k] for k in ("sfx", "marks", "face_track") if k in info}
+    return str(path), lay, note + (f"; extras {extra}" if extra else "")
+
+
+def _marks(src, a, b, w, h, name, clip_words, env, geo, cam, track, style, info) -> list[str]:
+    """ASS lines for circles/arrows: hand-set ones from data/marks.json, else automatic ones."""
+    cfg = style["marks"]
+    W, H = style["output"]["width"], style["output"]["height"]
+    hand = M.manual(name)
+    if hand is not None:
+        marks, how = hand, "by hand"
+    elif cfg.get("auto", True):
+        if env is None:
+            env = S.envelope(src["path"], a, b)
+        probe_cfg = {**(style.get("sound_effects") or {}), "enabled": True, "intro_whoosh": False}
+        keys = [e["t"] for e in S.place(clip_words, env, b - a, probe_cfg)] if len(env) else []
+        if not keys and len(env):
+            keys = [S._peak_t(env, 0.6, b - a - 0.6)]
+        marks, notes = M.auto(src["path"], a, b, w, h, keys, geo["game"][0], cam, cfg)
+        how = f"auto ({'; '.join(notes)})"
+    else:
+        return []
+    path = track.get("game_path")
+    fps = style["output"]["fps"]
+    at = (lambda t: float(path[min(len(path) - 1, int(t * fps))])) if path is not None else None
+    out = []
+    cap_h = style["captions"]["size"] * 0.7
+    for m in marks:
+        o = M.to_output(m, {**geo, "out_wh": (W, H)}, w, h, at)
+        if not o or (hand is None and o["r"] > cfg.get("max_radius", 150)):
+            continue
+        cy = geo.get("caption_y_b") if any(s0 <= m["t"] < e0 for s0, e0 in geo.get("b_ranges", [])) else geo["caption_y"]
+        if abs(o["y"] - cy) < max(o["r"], 60) + cap_h:  # never on the caption band
+            continue
+        out.append(o)
+    info["marks"] = {"how": how, "placed": [{k: round(v, 2) if isinstance(v, float) else v for k, v in o.items()} for o in out]}
+    return M.ass_events(out, cfg, W, H)

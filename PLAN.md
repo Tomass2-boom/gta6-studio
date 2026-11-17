@@ -339,14 +339,14 @@ These need your accounts and cannot be done by Claude:
 | Review page (`studio review`) | **Stub** (M4) |
 | Posting (`studio post`) | **Stub** (M5). Day 1 = post by hand from `data/clips/` |
 | Streamer list | 5 names; AU/NZ list is thin (only DarkViperAU) |
-| Sound effects, arrows, German (M7) | Not started |
+| Sound effects, circles/arrows, face tracking (S8 part 1) | Built 2026-11-17, all OFF in `style.yaml` until the user approves (sound levels need a listen). `studio mark` sets circles/arrows by hand. German (M7) not started |
 | Analytics loop (M8) | Not started |
 
 **What is left, in order (updated 2026-11-17 20:20 CET, prompts in `.claude/next-sessions.md`):**
 1. ~~**Tonight: rehearsal (Sonnet 5.5).**~~ DONE 2026-11-17 (see `.claude/handoff.md`). `studio live` on real GTA 5 streams on Kick, YouTube and Twitch;
    each platform makes a clip from a real trigger; tune loudness/chat thresholds; test one Twitch and one
    Kick VOD.
-2. **Tonight: S8 part 1, the look upgrades (Opus 5.5).** Sound effects, circles/arrows, face tracking, all
+2. ~~**Tonight: S8 part 1, the look upgrades (Opus 5.5).**~~ DONE 2026-11-17 (switches off until approved). Sound effects, circles/arrows, face tracking, all
    switchable in `style.yaml`. Free-licence sounds only.
 3. **Tonight: full test (Sonnet 5.5)** with the new look on, plus a launch checklist.
 4. **Tonight: warm-up clips (Sonnet 5.5)** from YouTube videos where people talk about GTA 6 launch.

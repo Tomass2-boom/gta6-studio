@@ -58,6 +58,21 @@ def cam_timeline(video: str, a: float, b: float, box, src_w: int, src_h: int, st
     return [_edge(f, *box) for f in frames]
 
 
+def black_band(video: str, a: float, b: float, w: int, h: int, n: int = 6) -> float:
+    """Share of the frame height that is black in all n sampled frames (rows touching top/bottom or not)."""
+    sw, sh = 160, max(2, round(160 * h / w))
+    step = max(0.5, (b - a) / n)
+    raw = subprocess.run([tools()[0], "-v", "error", "-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", video,
+                          "-vf", f"fps=1/{step:.3f},scale={sw}:{sh}", "-frames:v", str(n), "-f", "rawvideo",
+                          "-pix_fmt", "gray", "-"], capture_output=True, check=True).stdout
+    k = len(raw) // (sw * sh)
+    if not k:
+        return 0.0
+    f = np.frombuffer(raw[: k * sw * sh], np.uint8).reshape(k, sh, sw)
+    dark = (np.percentile(f, 98, axis=2) < 24).all(axis=0)  # a row that is black across the width in every frame
+    return float(dark.mean())
+
+
 def off_ranges(timeline: list[bool], min_s: float, step: float = 1.0) -> list[tuple[float, float]]:
     """Time ranges (clip seconds) where the cam is off for at least min_s. One-sample blips are smoothed."""
     t = list(timeline)
@@ -88,19 +103,29 @@ def _crop_aspect(x, y, w, h, aspect, focus_x=0.5, focus_y=0.5):
     return cw, ch, x + round((w - cw) * focus_x), y + round((h - ch) * focus_y)
 
 
-def build_switching(style: dict, src_w: int, src_h: int, cam, ranges) -> tuple[str, dict]:
+def build_switching(style: dict, src_w: int, src_h: int, cam, ranges, track: dict | None = None) -> tuple[str, dict]:
     """Layout A, switching to B during `ranges` (cam off). Captions move with it."""
-    ga, geo = build("A", style, src_w, src_h, cam)
+    ga, geo = build("A", style, src_w, src_h, cam, track)
     gb, geo_b = build("B", style, src_w, src_h)
     ga = ga.replace("[0:v]", "[ia]", 1).replace("[base]", "[pa]")
     gb = gb.replace("[0:v]", "[ib]", 1).replace("[base]", "[pb]")
     expr = "+".join(f"between(t,{s:.2f},{e:.2f})" for s, e in ranges)
     g = f"[0:v]split=2[ia][ib];{ga};{gb};[pa][pb]overlay=0:0:enable='{expr}'[base]"
-    return g, {**geo, "caption_y_b": geo_b["caption_y"], "b_ranges": ranges}
+    return g, {**geo, "caption_y_b": geo_b["caption_y"], "b_ranges": ranges, "game_b": geo_b["game"]}
 
 
-def build(layout: str, style: dict, src_w: int, src_h: int, cam=None) -> tuple[str, dict]:
-    """Return (filtergraph from [0:v] to [base], geometry for captions)."""
+def _crop(name: str | None, cmds: str | None) -> str:
+    """'crop' or, when a sendcmd script drives it, 'sendcmd=f=...,crop@name'."""
+    if not cmds:
+        return "crop"
+    return f"sendcmd=f='{cmds}',crop@{name}"
+
+
+def build(layout: str, style: dict, src_w: int, src_h: int, cam=None, track: dict | None = None) -> tuple[str, dict]:
+    """Return (filtergraph from [0:v] to [base], geometry for captions and marks).
+    track: optional {'cam': sendcmd file, 'game': sendcmd file} for face tracking (crop x/y follow a path);
+    the crop then starts at track['cam_xy'] / track['game_xy']."""
+    track = track or {}
     W, H = style["output"]["width"], style["output"]["height"]
     if layout == "A":
         A = style["layout_a"]
@@ -110,16 +135,20 @@ def build(layout: str, style: dict, src_w: int, src_h: int, cam=None) -> tuple[s
         x, y, w, h = x + 2, y + 2, w - 4, h - 4  # stay inside the cam border
         cw, chh, cx, cy = _crop_aspect(x, y, w, h, W / ch_out, 0.5, A["cam_focus_y"])
         gw, gh, gx, gy = _crop_aspect(0, 0, src_w, src_h, W / gh_out, A["gameplay_focus_x"])
-        g = (f"[0:v]split=2[s1][s2];[s1]crop={cw}:{chh}:{cx}:{cy},scale={W}:{ch_out}:flags=lanczos,setsar=1[cam];"
+        cx, cy = track.get("cam_xy", (cx, cy))
+        g = (f"[0:v]split=2[s1][s2];[s1]{_crop('cam', track.get('cam'))}={cw}:{chh}:{cx}:{cy},scale={W}:{ch_out}:flags=lanczos,setsar=1[cam];"
              f"[s2]crop={gw}:{gh}:{gx}:{gy},scale={W}:{gh_out}:flags=lanczos,setsar=1[game];"
              f"[cam][game]vstack[base]")
         cap = style["captions"]["position_a"]
         y_cap = ch_out if cap == "seam" else float(cap) * H
-        return g, {"caption_y": y_cap}
+        return g, {"caption_y": y_cap, "game": ((gx, gy, gw, gh), (0, ch_out, W, gh_out)),
+                   "cam_crop": (cw, chh, (x, y, w, h)), "cam_out": (0, 0, W, ch_out)}
     if layout == "B":
         gw, gh, gx, gy = _crop_aspect(0, 0, src_w, src_h, W / H, style["layout_b"]["gameplay_focus_x"])
-        g = f"[0:v]crop={gw}:{gh}:{gx}:{gy},scale={W}:{H}:flags=lanczos,setsar=1[base]"
-        return g, {"caption_y": float(style["captions"]["position_b"]) * H}
+        gx, gy = track.get("game_xy", (gx, gy))
+        g = f"[0:v]{_crop('game', track.get('game'))}={gw}:{gh}:{gx}:{gy},scale={W}:{H}:flags=lanczos,setsar=1[base]"
+        return g, {"caption_y": float(style["captions"]["position_b"]) * H, "game": ((gx, gy, gw, gh), (0, 0, W, H)),
+                   "game_crop": (gw, gh)}
     if layout == "C":
         C = style["layout_c"]
         vh = round(W * src_h / src_w) // 2 * 2
@@ -132,5 +161,5 @@ def build(layout: str, style: dict, src_w: int, src_h: int, cam=None) -> tuple[s
              f"[bg][fg]overlay=0:{top}[base]")
         cap = style["captions"]
         y_cap = top + vh + cap["size"] * 0.9 if cap["position_c"] == "below_video" else float(cap["position_c"]) * H
-        return g, {"caption_y": y_cap, "video_top": top}
+        return g, {"caption_y": y_cap, "video_top": top, "game": ((0, 0, src_w, src_h), (0, top, W, vh))}
     raise ValueError(f"unknown layout {layout}")
