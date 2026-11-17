@@ -61,3 +61,11 @@ def test_loud_detector_fires_once_on_burst_not_on_steady_noise():
     sp = d.feed("c", 1400, burst)
     assert len(sp) == 1 and sp[0].kind == "loud" and 1400 <= sp[0].t <= 1420 and sp[0].strength > 3
     assert LoudDetector(cfg).feed("c", 0, 0.2 + 0.03 * rng.standard_normal(600)) == []   # always-loud stream
+
+
+def test_youtube_chat_line_parse():
+    from studio.chat.youtube import parse_line
+    line = json.dumps({"replayChatItemAction": {"actions": [{"addChatItemAction": {"item": {"liveChatTextMessageRenderer": {
+        "authorName": {"simpleText": "@a"}, "message": {"runs": [{"text": "LOL "}, {"emoji": {"shortcuts": [":kekw:"]}}]}}}}},
+        {"addChatItemAction": {"item": {"liveChatPaidMessageRenderer": {}}}}]}})
+    assert parse_line(line) == [("@a", "LOL :kekw:")] and parse_line("{broken") == []

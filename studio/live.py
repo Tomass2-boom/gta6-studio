@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 import typer
 
 from . import db
-from .chat import twitch
+from .chat import twitch, youtube
 from .config import DATA, load
 from .detect import signals
 from .detect.chat import ChatDetector
@@ -24,7 +24,9 @@ from .detect.loud import LoudDetector
 from .ingest import live as vid
 
 
-CHAT_READERS = {"twitch"}   # platforms with a chat reader in studio/chat/
+# Platforms whose chat is the ONLY trigger (the loudness trigger is then off, loud_trigger: no_chat). YouTube has a
+# chat reader but is left out on purpose: its reader depends on yt-dlp, so loudness remains a second trigger.
+CHAT_READERS = {"twitch"}
 PLATFORMS = {"twitch", "kick", "youtube"}
 
 
@@ -235,6 +237,8 @@ class Live:
     async def main(self):
         tw = [c for c, e in self.chans.items() if e["platform"] == "twitch"]
         tasks = ([twitch.read(tw, self.on_message, self.lg)] if tw else []) + [self.loop()]
+        tasks += [youtube.read_one(c, vid.stream_url("youtube", c), self.on_message, self.lg)
+                  for c, e in self.chans.items() if e["platform"] == "youtube"]
         tasks += [self.supervise(c) for c, e in self.chans.items() if e["tier"] == "A"]
         tasks += [self.watch_loudness(c) for c in self.chans if self.uses_loud(c)]
         threading.Thread(target=self.worker, daemon=True).start()
