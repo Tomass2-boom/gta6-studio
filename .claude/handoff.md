@@ -33,7 +33,7 @@ Spike to finished clip: mean 43 s (one worker, so about 80 moments an hour in to
 **Not done / for other sessions:**
 - Judge drops most RP moments ("no gameplay action"). Good for action clips; RP-heavy streamers will give few clips. Judge prompt is outside this session's area.
 - Render (look session): clip 53 (OpTic multi-POV overlay) has a big empty black band on top with a small facecam+game strip. Facecam/layout B misread the overlay. Clip 59 caption shows "FUCKING" uncensored (platform risk?).
-- Kick runs both triggers (`CHAT_READERS` is still {"twitch"}): on ramee chat + loud is about 17 fires/h, above the 6-10/h per-channel budget. If the worker queue backs up at launch, add `kick` to `CHAT_READERS` (chat only) or set `loud_trigger`. Not changed: the user decides.
+- Kick runs both triggers (`CHAT_READERS` is still {"twitch"}): on ramee chat + loud is about 17 fires/h, above the 6-10/h per-channel budget. If the worker queue backs up at launch, add `kick` to `CHAT_READERS` (chat only) or set `loud_trigger`. User decided 2026-11-17: keep both triggers on Kick.
 - Tonight's streams had hundreds to a few thousand viewers. Ratios carry over; at launch scale `burst_x` binds, not `min_burst`.
 - The Kick/YouTube clips came from the pre-tuning run; the replay confirms the tuned settings still catch moments 36, 45 and 53. The tuned live run was short (it made the Twitch clip).
 - `db.connect()` has no WAL/busy_timeout. Don't run `studio vod` while `studio live` runs.
