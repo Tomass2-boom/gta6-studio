@@ -5,8 +5,8 @@ from ..config import load
 
 
 def transcribe(video: str, start: float, end: float) -> dict:
-    """Transcribe [start,end] of a video. Returns {'text', 'segments':[{start,end,text}]} with
-    times relative to the full video."""
+    """Transcribe [start,end] of a video. Returns {'text', 'segments':[{start,end,text}],
+    'words':[{word,start,end}]} with times relative to the full video."""
     import mlx_whisper
     with tempfile.TemporaryDirectory() as d:
         wav = Path(d) / "a.wav"
@@ -16,4 +16,6 @@ def transcribe(video: str, start: float, end: float) -> dict:
                                    word_timestamps=True, language=load("settings")["whisper"]["language"])
     segs = [{"start": round(s["start"] + start, 2), "end": round(s["end"] + start, 2),
              "text": s["text"].strip()} for s in r["segments"]]
-    return {"text": " ".join(s["text"] for s in segs), "segments": segs}
+    words = [{"word": w["word"].strip(), "start": round(w["start"] + start, 2), "end": round(w["end"] + start, 2)}
+             for s in r["segments"] for w in s.get("words", []) if w["word"].strip()]
+    return {"text": " ".join(s["text"] for s in segs), "segments": segs, "words": words}

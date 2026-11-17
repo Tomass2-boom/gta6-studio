@@ -12,7 +12,37 @@ DROP it if it is mostly in-game cutscene dialogue, story spoilers/endings, dead 
 If keep, choose start/end snapped to sentence boundaries (15-50 s long, 60 max) so the clip has
 a hook at the start and the payoff before the end.
 Reply ONLY JSON: {{"keep": bool, "score": 1-10, "start": sec, "end": sec,
-"title": "short hook title, no clickbait lies", "hashtags": ["#gta6", ...], "reason": "one line"}}"""
+"title": "short hook title, no clickbait lies", "hashtags": ["#gta6", ...], "reason": "one line",
+"keywords": ["up to 8 punchy words spoken in the clip to highlight in captions"]}}"""
+
+KW_PROMPT = """These are the words spoken in a short gameplay clip:
+{text}
+
+Pick up to {n} single words from it that carry the punch (the joke, the shock, names of key things,
+strong emotion words). Only words that appear in the text. Reply ONLY JSON: {{"keywords": ["word", ...]}}"""
+
+
+def _ask(prompt: str, model: str | None = None) -> dict:
+    cfg = load("settings")["judge"]
+    r = requests.post(cfg["ollama_url"] + "/api/chat", timeout=600, json={
+        "model": model or cfg["model"], "stream": False, "think": False, "options": {"temperature": 0.3},
+        "messages": [{"role": "user", "content": prompt}]})
+    r.raise_for_status()
+    txt = r.json()["message"]["content"]
+    m = re.search(r"\{.*\}", txt, re.S)
+    if not m:
+        raise ValueError(f"no JSON in reply: {txt[:200]}")
+    return json.loads(m.group(0))
+
+
+def keywords(text: str, n: int = 8, model: str | None = None) -> list[str]:
+    """Words to highlight in captions, for moments judged before keywords existed."""
+    for i in range(3):
+        try:
+            return [str(k) for k in _ask(KW_PROMPT.format(text=text, n=n), model).get("keywords", [])][:n]
+        except (ValueError, KeyError):
+            if i == 2:
+                return []
 
 
 def judge(segments: list[dict], model: str | None = None, tries: int = 3) -> dict:

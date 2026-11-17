@@ -35,6 +35,16 @@ def doctor():
 
     for t in ("ffmpeg", "yt-dlp", "streamlink", "ollama", "uv", "git"):
         row(t, shutil.which(t))
+    import subprocess
+    from .render.layout import tools
+    ff = tools()[0]
+    try:
+        flt = subprocess.run([ff, "-hide_banner", "-filters"], capture_output=True, text=True).stdout
+        row("ffmpeg with libass (captions)", " ass " in flt, ff)
+    except FileNotFoundError:
+        row("ffmpeg with libass (captions)", False, f"{ff} missing (brew install ffmpeg-full)")
+    font = load("style")["captions"]["font_file"]
+    row("caption font", (Path(__file__).parent.parent / "assets" / "fonts" / font).exists(), font)
     try:
         import mlx_whisper  # noqa: F401
         row("mlx-whisper", True)
@@ -69,7 +79,9 @@ def _check_streamer(src, lg):
     known = {str(x.get("name", "")).lower(): x for x in s.get("streamers", [])}
     if name not in known:
         lg.warning("%s is not in streamers.yaml (allowed status unknown)", src["streamer"])
-    elif not known[name].get("allowed", False):
+    elif known[name].get("allowed") is None:
+        lg.warning("%s: allowed not checked yet in streamers.yaml", src["streamer"])
+    elif not known[name]["allowed"]:
         raise typer.Exit(f"{src['streamer']} has allowed: false; refusing.")
 
 
@@ -80,7 +92,6 @@ def vod(url: str, top: int = typer.Option(15, help="Max candidate moments to jud
     from .detect import signals
     from .ingest.download import fetch_video
     from .judge.llm import judge
-    from .render.cut import plain_cut
     from .transcribe.whisper import transcribe
 
     cfg, lg, con = load("settings"), log("vod"), db.connect()
@@ -112,28 +123,66 @@ def vod(url: str, top: int = typer.Option(15, help="Max candidate moments to jud
         mid = m["id"]
         try:
             tr = transcribe(src["path"], m["t_start"], m["t_end"])
-            db.update(con, mid, state="fetched", transcript=json.dumps(tr["segments"]))
+            db.update(con, mid, state="fetched", transcript=json.dumps(tr["segments"]), words=tr["words"])
             if not tr["segments"]:
                 db.fail(con, mid, "no speech")
                 continue
             j = judge(tr["segments"], model)
             db.update(con, mid, state="judged", keep=int(bool(j.get("keep"))), score=j.get("score"),
                       reason=j.get("reason"), title=j.get("title"), hashtags=" ".join(j.get("hashtags", [])),
-                      j_start=j["start"], j_end=j["end"], judge_model=model or cfg["judge"]["model"])
+                      j_start=j["start"], j_end=j["end"], judge_model=model or cfg["judge"]["model"],
+                      keywords=[str(k) for k in j.get("keywords", [])])
             if j.get("keep") and (j.get("score") or 0) >= cfg["clip"]["min_score"]:
                 a, b = _clamp(j["start"], j["end"], m["t_start"], m["t_end"], cfg["clip"])
                 if b - a < cfg["clip"]["min_len_s"]:
                     db.fail(con, mid, f"clip too short after clamping ({b - a:.0f}s)")
                     continue
                 db.update(con, mid, j_start=a, j_end=b)
-                path = plain_cut(src["path"], a, b, f"{sid}_{int(a)}")
-                db.update(con, mid, state="rendered", clip_path=path)
+                _render_one(con, mid, lg)
                 lg.info("moment %d kept (%s) %s", mid, j.get("score"), j.get("title"))
             else:
                 lg.info("moment %d dropped: %s", mid, j.get("reason"))
         except Exception as e:  # no silent failures
             lg.exception("moment %d failed", mid)
             db.fail(con, mid, f"{type(e).__name__}: {e}")
+
+
+def _render_one(con, mid: int, lg, force_layout: str | None = None):
+    """Render one judged moment vertically. Fetches word timing / keywords if missing."""
+    from .judge.llm import keywords as pick_keywords
+    from .render.vertical import render
+    from .transcribe.whisper import transcribe
+    m = con.execute("SELECT * FROM moments WHERE id=?", (mid,)).fetchone()
+    src = dict(con.execute("SELECT * FROM sources WHERE id=?", (m["source_id"],)).fetchone())
+    a, b = m["j_start"], m["j_end"]
+    words = json.loads(m["words"]) if m["words"] else []
+    if not words or words[0]["start"] > a + 2 or words[-1]["end"] < b - 2:
+        words = transcribe(src["path"], a, b)["words"]
+        db.update(con, mid, words=words)
+    kw = json.loads(m["keywords"]) if m["keywords"] else None
+    if kw is None:
+        kw = pick_keywords(" ".join(w["word"] for w in words if a <= w["start"] <= b))
+        db.update(con, mid, keywords=kw)
+    path, lay, note = render(src, a, b, words, kw, m["title"], f"{src['id']}_{int(a)}", force_layout)
+    db.update(con, mid, state="rendered", clip_path=path, layout=lay)
+    lg.info("moment %d rendered, layout %s (%s): %s", mid, lay, note, path)
+    return path
+
+
+@app.command("render")
+def render_cmd(ids: list[int] = typer.Argument(None, help="Moment ids (default: all rendered/judged-kept)"),
+               layout: str = typer.Option(None, help="Force layout A, B or C (default from style.yaml)")):
+    """Render moments as finished vertical clips (re-runnable; style comes from config/style.yaml)."""
+    lg, con = log("render"), db.connect()
+    if not ids:
+        ids = [r["id"] for r in con.execute("SELECT id FROM moments WHERE state='rendered' OR "
+                                            "(state='judged' AND keep=1 AND j_end > j_start)")]
+    for mid in ids:
+        try:
+            _render_one(con, mid, lg, layout)
+        except Exception as e:  # no silent failures
+            lg.exception("moment %d render failed", mid)
+            db.fail(con, mid, f"render: {type(e).__name__}: {e}")
 
 
 @app.command()

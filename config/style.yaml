@@ -1,2 +1,65 @@
-# Filled in S2 (the look).
-layout: A
+# The look. Changing the look never means changing code.
+# Colours are hex RRGGBB. Sizes are pixels on the 1080x1920 output.
+
+output:
+  width: 1080
+  height: 1920
+  fps: 30
+  crf: 20              # lower = better quality, bigger file
+  loudness_lufs: -14   # loudness target for Shorts/TikTok/Reels
+
+# auto = layout A when the streamer's facecam is visible in the clip, else B.
+# Or force one: A (facecam top), B (gameplay only), C (16:9 middle + title box).
+layout: auto
+
+layout_a:
+  cam_height: 0.38        # share of the frame height the facecam takes
+  cam_focus_y: 0.5        # where to crop the cam vertically if it is too tall (0 top, 1 bottom)
+  gameplay_focus_x: 0.5   # which part of the wide gameplay to keep (0 left, 0.5 centre, 1 right)
+  cam_presence: 0.5       # facecam must be seen in this share of the clip to use A (else B)
+  switch_min_s: 2         # if the cam is off this long inside an A clip, switch to B for that part
+
+layout_b:
+  gameplay_focus_x: 0.5
+
+layout_c:
+  video_center_y: 0.5     # vertical centre of the 16:9 picture (share of height)
+  background: blur        # blur | black
+  blur: 40
+  title_box:
+    color: FFFFFF
+    text_color: "000000"
+    font_size: 86
+    uppercase: false
+    radius: 36
+    padding_x: 44
+    padding_y: 30
+    margin_x: 60          # gap between box and frame edge
+    gap: 36               # gap between box and picture
+    max_lines: 3
+
+captions:
+  font: Nunito Black      # family name inside the font file
+  font_file: Nunito-Black.ttf   # in assets/fonts/
+  size: 124
+  uppercase: true
+  color: FFFFFF
+  outline_color: "000000"
+  outline: 10
+  shadow: 0
+  highlight_colors: [3CFF3C, FFE600]   # key words, used in turn
+  words_per_caption: 2
+  max_chars: 14           # a caption never gets longer than this
+  break_gap_s: 0.5        # a pause this long starts a new caption
+  hold_s: 0.35            # keep a caption up this long after its last word
+  min_show_s: 0.25
+  pop_from: 75            # pop-in starts at this % size...
+  pop_ms: 90              # ...and grows to 100 % in this many ms
+  keep_punctuation: "?!"
+  # vertical position of the caption centre
+  position_a: seam        # seam = on the line between facecam and gameplay
+  position_b: 0.62        # share of height
+  position_c: below_video # just under the picture
+
+reaction_tags: false      # *SECURITY* style tags in silent parts (not built yet)
+sound_effects: false      # off until approved

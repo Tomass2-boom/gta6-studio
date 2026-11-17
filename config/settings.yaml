@@ -16,3 +16,7 @@ clip:
   min_len_s: 15
   heatmap_min: 0.6
   merge_gap_s: 30
+render:
+  # ffmpeg-full (Homebrew, keg-only) has libass for captions; the plain ffmpeg does not.
+  ffmpeg: /opt/homebrew/opt/ffmpeg-full/bin/ffmpeg
+  ffprobe: /opt/homebrew/opt/ffmpeg-full/bin/ffprobe

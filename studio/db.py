@@ -23,14 +23,16 @@ def connect() -> sqlite3.Connection:
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
     cols = {r[1] for r in con.execute("PRAGMA table_info(moments)")}
-    if "reason" not in cols:
-        con.execute("ALTER TABLE moments ADD COLUMN reason TEXT")
+    for col in ("reason", "words", "keywords", "layout"):  # words: JSON [{word,start,end}] in source seconds
+        if col not in cols:
+            con.execute(f"ALTER TABLE moments ADD COLUMN {col} TEXT")
     return con
 
 
 def update(con, moment_id: int, **fields):
-    if "signals" in fields and not isinstance(fields["signals"], str):
-        fields["signals"] = json.dumps(fields["signals"])
+    for k in ("signals", "words", "keywords"):
+        if k in fields and fields[k] is not None and not isinstance(fields[k], str):
+            fields[k] = json.dumps(fields[k])
     cols = ", ".join(f"{k}=?" for k in fields)
     con.execute(f"UPDATE moments SET {cols}, updated=CURRENT_TIMESTAMP WHERE id=?",
                 (*fields.values(), moment_id))

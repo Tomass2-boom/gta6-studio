@@ -9,6 +9,7 @@ dependencies = [
     "typer",
     "python-dotenv",
     "numpy>=2.4.6",
+    "pillow>=13.0.0",
 ]
 
 [project.scripts]

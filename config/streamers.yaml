@@ -1,2 +1,10 @@
-streamers: []   # S5 fills this: name, platform, url, tier, allowed, facecam
+# S5 fills this: name, platform, url, tier, allowed, facecam.
+# allowed: true = clipping OK, false = refuse, null = not checked yet (warns).
+# facecam: [x, y, w, h] box in pixels of a frame of size ref [width, height].
+streamers:
+  - name: xQc
+    platform: youtube
+    allowed: null        # S5 must verify
+    facecam: [0, 0, 250, 188]
+    ref: [1280, 720]
 blocklist: []
