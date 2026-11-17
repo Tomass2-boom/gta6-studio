@@ -11,6 +11,7 @@ dependencies = [
     "numpy>=2.4.6",
     "pillow>=13.0.0",
     "opencv-python-headless>=4.10,<5",
+    "websockets>=17.4",
 ]
 
 [project.scripts]

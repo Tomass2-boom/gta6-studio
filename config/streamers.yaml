@@ -13,12 +13,14 @@ streamers:
   - name: N3on
     platform: kick
     channel: n3on
+    kick_chatroom: 1220770   # chat id (curl kick.com/api/v2/channels/<slug>, chatroom.id); looked up 2026-11-17
     tier: A
     allowed: null
     note: "user's top priority; said he will stream from New Zealand (not confirmed in news)"
   - name: Adin Ross
     platform: kick
     channel: adinross
+    kick_chatroom: 875062
     tier: A
     allowed: null
     note: "Kick; no confirmed NZ plan"

@@ -288,7 +288,7 @@ each other's files.
 | S4 | M4 + M5 | Sonnet 5.5 | Standard web page and API work. You do the account clicks |
 | S5 | Streamer list: who streams GTA 6, where, who allows clipping | Haiku 5.5 | Web lookups only |
 | S6 | Open campaigns check on launch day | Haiku 5.5 | Web lookups only |
-| S7 | M6, **now before S4** | Sonnet 5.5 | Kick + YouTube live for launch (N3on, Speed). Scope in order: (a) Tier A recording for any platform + loudness-only trigger when no chat reader exists, (b) Kick chat, (c) YouTube Live chat. **Status 2026-11-17: (a) and (c) done (c via yt-dlp live_chat); (b) Kick chat waits on the user, loudness-only meanwhile** |
+| S7 | M6, **now before S4** | Sonnet 5.5 | Kick + YouTube live for launch (N3on, Speed). Scope in order: (a) Tier A recording for any platform + loudness-only trigger when no chat reader exists, (b) Kick chat, (c) YouTube Live chat. **Status 2026-11-17: (a) and (c) done (c via yt-dlp live_chat); (b) Kick chat done too (Pusher), loudness stays as backup** |
 | S8 | M7 + M8 | Sonnet 5.5, Opus only for arrow placement design | |
 
 Order from Tuesday evening 2026-11-17 (S1, S2, S2b, S3 are done):

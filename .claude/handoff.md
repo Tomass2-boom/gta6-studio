@@ -9,7 +9,7 @@ Tested: Kick/destiny full chain (record, loud spike, cut, Whisper, judge); YouTu
 **Not tested / open:**
 - Loud thresholds never fired on real GTA audio; on 5 min of talk the 6 s/10 min ratio was p99 1.48, max 1.51 and
   the config needs 1.6 (+ z 4). Tune in Wednesday's rehearsal on a live Kick GTA stream (scream ratio should be >2).
-- Kick chat (b): needs Kick's unofficial chatroom API; blocked in the sandbox, user must decide (else loudness-only).
+- Kick chat (b): DONE, studio/chat/kick.py (Pusher key 34bf7a0ff419a2a775b9, chatroom ids stored in streamers.yaml as kick_chatroom; Python gets 403 from Kick API, use curl). Loudness stays as second trigger.
 - Tier B rewind for Kick/YouTube (d): not tried.
 - `signals.loudness_per_second` calls bare `ffmpeg` (works, not `tools()`).
 **Next:** S5 (Haiku 5.5) streamer list, then Wednesday rehearsal, then S4.

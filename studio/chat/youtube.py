@@ -40,7 +40,7 @@ async def read_one(channel: str, url: str, on_message, log=None, save_chat=True)
         p = subprocess.Popen(["yt-dlp", "--skip-download", "--write-subs", "--sub-langs", "live_chat", "-o",
                               f"{base}.%(ext)s", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True)
-        t0, pos, buf, got = time.time(), 0, b"", 0
+        t0, pos, buf, got, first = time.time(), 0, b"", 0, True   # first batch = old backlog
         try:
             while True:
                 await asyncio.sleep(1)
@@ -51,6 +51,8 @@ async def read_one(channel: str, url: str, on_message, log=None, save_chat=True)
                         fh.seek(pos)
                         new = fh.read()
                     pos += len(new)
+                    backlog = first and bool(new)
+                    first = first and not new
                     *lines, buf = (buf + new).split(b"\n")
                     for ln in lines:
                         for user, text in parse_line(ln.decode("utf-8", "replace")):
@@ -58,7 +60,8 @@ async def read_one(channel: str, url: str, on_message, log=None, save_chat=True)
                             got += 1
                             if save_chat:
                                 _save(f"yt-{channel}", ts, user, text)
-                            on_message(channel, ts, user, text)
+                            if not backlog:      # yt-dlp dumps recent chat at start: not a live burst
+                                on_message(channel, ts, user, text)
                 if not alive:
                     break
         finally:

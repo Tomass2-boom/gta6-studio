@@ -69,3 +69,11 @@ def test_youtube_chat_line_parse():
         "authorName": {"simpleText": "@a"}, "message": {"runs": [{"text": "LOL "}, {"emoji": {"shortcuts": [":kekw:"]}}]}}}}},
         {"addChatItemAction": {"item": {"liveChatPaidMessageRenderer": {}}}}]}})
     assert parse_line(line) == [("@a", "LOL :kekw:")] and parse_line("{broken") == []
+
+
+def test_kick_frame_parse():
+    from studio.chat.kick import parse
+    data = json.dumps({"content": "[emote:1:KEKW] nice [emote:2:W]", "sender": {"username": "bob"}})
+    frame = json.dumps({"event": "App\\Events\\ChatMessageEvent", "data": data})
+    assert parse(frame) == ("bob", "KEKW nice W")
+    assert parse(json.dumps({"event": "pusher:ping", "data": {}})) == None and parse("junk") is None

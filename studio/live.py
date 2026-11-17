@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 import typer
 
 from . import db
-from .chat import twitch, youtube
+from .chat import kick, twitch, youtube
 from .config import DATA, load
 from .detect import signals
 from .detect.chat import ChatDetector
@@ -45,7 +45,8 @@ def resolve_channels(arg: str | None, lg) -> list[dict]:
         for e in s.get("streamers", []):
             ch = e.get("channel") or (e.get("url") or "").rstrip("/").split("/")[-1] or e["name"]
             out.append({"name": e["name"], "channel": ch.lower(), "platform": e.get("platform", "twitch"),
-                        "tier": str(e.get("tier", "B")).upper(), "live": e.get("live", True)})
+                        "tier": str(e.get("tier", "B")).upper(), "live": e.get("live", True),
+                        "kick_chatroom": e.get("kick_chatroom")})
     keep = []
     for e in out:
         if e["name"].lower() in block or e["channel"] in block:
@@ -239,6 +240,13 @@ class Live:
         tasks = ([twitch.read(tw, self.on_message, self.lg)] if tw else []) + [self.loop()]
         tasks += [youtube.read_one(c, vid.stream_url("youtube", c), self.on_message, self.lg)
                   for c, e in self.chans.items() if e["platform"] == "youtube"]
+        for c, e in self.chans.items():
+            if e["platform"] != "kick":
+                continue
+            if e.get("kick_chatroom"):
+                tasks.append(kick.read_one(c, int(e["kick_chatroom"]), self.on_message, self.lg))
+            else:
+                self.lg.warning("%s: no kick_chatroom in streamers.yaml, loudness trigger only", c)
         tasks += [self.supervise(c) for c, e in self.chans.items() if e["tier"] == "A"]
         tasks += [self.watch_loudness(c) for c in self.chans if self.uses_loud(c)]
         threading.Thread(target=self.worker, daemon=True).start()
