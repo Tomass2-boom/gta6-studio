@@ -30,6 +30,15 @@ streamers:
     tier: B
     allowed: null
     note: "NZ trip is a rumour (one YouTube Short); reported GTA III-V marathon before launch. Twitch warned about the NZ trick"
+  # --- AU/NZ, found by S5 web search 2026-11-17 (slug on TwitchMetrics and StreamsCharts; not yet live-checked) ---
+  - name: DarkViperAU
+    platform: twitch
+    channel: darkviperau
+    tier: B
+    allowed: null
+    note: "Australian GTA V speedrunner/challenge creator; ~870-930 avg viewers per TwitchMetrics (date unknown). Ranked #19 English GTA V channels (30 days). Slug unverified live"
+  # Not added yet (weak evidence): aus24 (Twitch, StreamsCharts shows no activity in 30 days, last GTA RP stream Feb 2025);
+  # Whippy (Australian GTA streamer, Twitch exclusive contract, slug not confirmed). Check before adding.
   # --- Europe / US window ---
   - name: IShowSpeed
     platform: youtube
