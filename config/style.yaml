@@ -87,61 +87,102 @@ reaction_tags: false      # *SECURITY* style tags in silent parts (not built yet
 # Sounds live in assets/sfx/ (CC0, see assets/LICENCES.md and assets/sfx/sounds.yaml).
 sound_effects:
   enabled: false
-  volume_db: 0            # master gain on all effects (on top of each kind's gain_db)
-  max_per_clip: 2         # subtle: never more than this many
-  min_gap_s: 6            # at least this long between two effects
-  edge_s: 0.6             # no effects this close to the clip start/end
-  intro_whoosh: false     # one soft whoosh at the very start
-  intro_sound: whoosh-fast-soft
-  intro_gain_db: -6
+  volume_db: 0            # master gain on all effects (on top of each kind's gain)
+  max_per_clip: 4         # reaction hits (not counting intro, riser, cut whooshes)
+  min_gap_s: 3            # at least this long between two reaction hits
+  edge_s: 0.6             # no reaction hits this close to the clip start/end
+  intro_whoosh: true      # a whoosh as the clip opens
+  intro_sound: whoosh-medium-hard
+  intro_gain_db: 8        # measured: at 0 it added only +0.4..2 dB in its band on 5 of 6 clips
+  cut_sound: whoosh-fast-hard   # on each layout switch (webcam <-> full gameplay)
+  cut_gain_db: 6
+  # The payoff: the strongest reaction hit (else the loudest clear peak). A riser builds into it,
+  # so the hit lands on the riser's top.
+  payoff:
+    enabled: true
+    risers: [riser-2s-strong, riser-1s-strong]   # the longest that fits before the payoff
+    riser_gain_db: 10     # measured: at +2 it added under +1 dB in its band (inaudible)
+    min_start_s: 0.8      # the riser may not start before this (keeps it off the intro whoosh)
+    peak_db: 12           # no reaction words: a peak this far above the median still counts
+    onset_db: 6           # ...and the hit lands where the voice first comes within this of that peak
+    hit: boom-hit-strong
+    hit_gain_db: 8
+    layer: impact-heavy-hard  # see the bro_what note
+    layer_gain_db: 12     # a payoff sits on a shout: at 7 the layer was still 6-8 dB under the voice
   # A word trigger only fires when the voice is this many dB above the clip's median loudness
   # (so a calm "what" does nothing; a shouted one does).
   word_loud_db: 6
+  # The voice dips this much for duck_s under each hit, so the hit is heard over a shout
+  # (measured: a hit on a shout sat 10-11 dB under the voice in the band phones play).
+  duck_db: 5
+  duck_s: 0.25
   kinds:                  # checked in this order of priority when two compete
     bro_what:
       phrases: ["bro what", "wait what", "what the fuck", "what the hell", "what the heck", "excuse me",
                 "are you serious", "are you kidding me", "huh", "what"]
       isolate_s: 0.3      # a one-word phrase ("what") only counts said on its own, with this much pause around it
       sound: boom-hit-medium
-      gain_db: 8         # file is -24.5 LUFS at its loudest; +8 puts it about 2 dB under the -14 voice
+      gain_db: 10.5       # was 8: "slightly louder" (user, 2026-11-17)
       at: start           # start | end | peak of the phrase
+      # Booms are bass (30-150 Hz): +13..23 dB there, but ~0 dB in 250-2000 Hz, the band phone speakers
+      # play. So a crisp impact goes on top: that is the part you hear on a phone.
+      layer: impact-heavy-hard
+      layer_gain_db: 7
+    hype:
+      phrases: ["let's go", "lets go", "oh my god", "oh my gosh", "no way", "yo yo yo", "bro bro bro"]
+      sound: bass-808-medium
+      gain_db: 6
+      at: start
+      layer: impact-heavy-hard
+      layer_gain_db: 4
     fail:
       phrases: ["no no no", "no no", "oh no", "i'm dead", "we're dead", "i died", "wasted", "bruh",
                 "i'm done", "nooo", "noo", "it's over", "we lost"]
       sound: notification-failure-wobble
-      gain_db: 7
+      gain_db: 8
       at: end
     laugh:                # Whisper usually drops laughter, so this only fires on written laughs
       phrases: ["haha", "hahaha", "hahahaha", "lmao", "lol", "hehe", "lmfao"]
       sound: pop-large-bubble
-      gain_db: 1
+      gain_db: 3
       at: start
     scream:               # no words needed: a very loud burst above the clip's median
       loud_db: 15
       min_len_s: 0.3
-      sound: impact-deep-hard
-      gain_db: 0
-      at: end             # right as the scream stops (under its peak the scream hides it)
+      sound: boom-drop-strong
+      gain_db: 9
+      layer: impact-heavy-hard
+      layer_gain_db: 8
+      at: after           # in the gap right after the scream (under it the scream hides any sound)
+      gap_db: 6           # "gap" = voice back within this many dB of the median...
+      gap_max_s: 1.2      # ...looked for up to this long after the scream
 
-# Circles / arrows on the thing that matters. Automatic only when one small thing clearly moves
-# on its own at a key moment (most clips get none). Set by hand with `studio mark` (overrides auto).
+# Circles + arrows, ONLY where they help (user, 2026-11-17): (1) the hook, when the opening words name
+# someone or something on screen ("oh he's running"), and (2) when the streamer says "look at that" etc.
+# A local vision model finds the thing, a tracker follows it. Any doubt = no mark. Most clips get none.
+# Set by hand with `studio mark` (overrides).
 marks:
   enabled: false
-  auto: true
-  kind: circle            # circle | arrow
+  hook: true
+  hook_words_s: 4.0       # the hook = words said in the first this-many seconds
+  cues: true
+  cue_phrases: ["look at that", "look at this", "look at him", "look at her", "look here", "look look",
+                "right there", "see that", "do you see", "over there"]
+  follow_s: 3.0           # how long the mark follows its target
+  max_per_clip: 2
+  vlm_model: gemma4:26b   # Ollama, multimodal
+  min_sure: 0.7           # the model's own confidence, at least
+  min_box: 0.002          # target box as a share of the gameplay picture
+  max_box: 0.15           # bigger = it already fills the screen, no mark needed
+  track_fps: 10
+  max_lost: 0.3           # tracker may lose the target in at most this share of frames
+  kind: both              # circle | arrow | both
   color: FF2D2D
   outline_color: "000000"
   thickness: 12
-  show_s: 1.4
   pop_ms: 140
-  # auto gate: the moving thing must be one compact blob
-  min_area: 0.002         # share of the gameplay area
-  max_area: 0.06
-  min_share: 0.55         # its share of all the motion in the picture
-  min_travel: 1.0         # it must move at least this many of its own sizes during the moment
-                          # (a flickering TV, foliage or lights stay in place and get no mark)
-  max_radius: 150         # px on the output; bigger targets get no circle
-  max_per_clip: 1
+  show_s: 1.4             # hand-set still marks
+  max_radius: 220         # px on the output
 
 # Face tracking: the facecam crop (layout A) follows the face inside the cam box, and clips with no
 # cam box but a big, steady face (full-screen camera) get a gameplay crop that follows the face.

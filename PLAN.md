@@ -339,7 +339,7 @@ These need your accounts and cannot be done by Claude:
 | Review page (`studio review`) | **Stub** (M4) |
 | Posting (`studio post`) | **Stub** (M5). Day 1 = post by hand from `data/clips/` |
 | Streamer list | 5 names; AU/NZ list is thin (only DarkViperAU) |
-| Sound effects, circles/arrows, face tracking (S8 part 1) | Built 2026-11-17, all OFF in `style.yaml` until the user approves (sound levels need a listen). `studio mark` sets circles/arrows by hand. German (M7) not started |
+| Sound effects, circles/arrows, face tracking (S8 part 1 + 1b) | Built 2026-11-17/18, all OFF in `style.yaml` until the user approves. 1b: marks only on the hook or a "look at that" cue (gemma4 box + MIL tracker, grounded quote check); more effects (intro whoosh, riser into the payoff, phone-audible impact layer, voice dip under hits); face tracking checked on real footage. Test batch: `data/clips/preview2/` (7 clips, Kai Cenat GTA RP). `studio mark` sets marks by hand. German (M7) not started |
 | Analytics loop (M8) | Not started |
 
 **What is left, in order (updated 2026-11-17 20:20 CET, prompts in `.claude/next-sessions.md`):**

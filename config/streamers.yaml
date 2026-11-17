@@ -30,6 +30,18 @@ streamers:
     tier: B
     allowed: null
     note: "NZ trip is a rumour (one YouTube Short); reported GTA III-V marathon before launch. Twitch warned about the NZ trick"
+  - name: Jelly
+    platform: youtube
+    channel: Jelly           # youtube.com/@Jelly, checked 2026-11-17 (latest upload: "One Last GTA 5 Race With the Boys")
+    tier: A
+    allowed: null
+    note: "user: flying to NZ to play and stream early (only web trace is a joke Short 'I Moved To New Zealand For GTA 6'); also in YouTube's launch show line-up. Mostly uploads, so live may stay offline"
+  - name: Slogo
+    platform: youtube
+    channel: Slogo           # youtube.com/@Slogo, checked 2026-11-17 (latest: "Goodbye GTA 5...")
+    tier: A
+    allowed: null
+    note: "Jelly's GTA race group; no NZ plan found, added in case they stream together"
   # --- AU/NZ, found by S5 web search 2026-11-17 (slug on TwitchMetrics and StreamsCharts; not yet live-checked) ---
   - name: DarkViperAU
     platform: twitch

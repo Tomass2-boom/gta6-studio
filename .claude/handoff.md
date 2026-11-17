@@ -1,145 +1,126 @@
-# Handoff: GTA6 Studio, S8 part 1 (look upgrades) done, next is the full test
+# Handoff: GTA6 Studio — S8 part 1b DONE (look upgrades, round 2); waiting on the user's verdict
 
 ## Goal
-Automated GTA 6 clip production: the pipeline watches live streams and VODs, finds the best moments, and cuts vertical captioned 1080p clips for the user's own YouTube Shorts, TikTok and Instagram Reels. The aim is maximum views. Be first: the NZ unlock is **Wed Nov 18 11:00 UTC (12:00 CET, the user's time zone)**. N3on (Kick) is the top priority. Quality comes first: "good clips, good high quality ones."
+Automated GTA 6 clip production. The pipeline watches live streams and VODs, finds the best moments, and cuts vertical 1080p captioned clips for the user's own YouTube Shorts, TikTok and Instagram Reels. The aim is maximum views and being first. The NZ unlock is **Wed Nov 18, 11:00 UTC (12:00 CET, the user's time zone)**, and N3on (Kick) is the top priority. The quality bar is "good clips, good high quality ones." This session's job is the look upgrades: sound effects, circles/arrows and face tracking, all switchable in `config/style.yaml`.
 
 ## How the person wants things done
 - **Token saving (global CLAUDE.md), never at the cost of quality:**
-  - Read only what's needed and search first.
-  - Batch tool calls; don't poll (use Monitor or a background until-loop).
+  - Read only what's needed and search first. Batch tool calls; never poll.
   - No filler.
   - Images: ONE contact sheet (ffmpeg `tile`, about 1600 px); open a full frame only when detail matters.
   - Suggest pressing **End** at about 150k tokens or when the task changes.
-  - Say so before changing model or effort (it resets the cache).
-- **Project hard rules (CLAUDE.md):**
-  - No paid services and no Anthropic API at runtime (local Whisper and Ollama only).
+  - Say so before changing model or effort, because it resets the cache.
+- **Project rules (CLAUDE.md):**
+  - No paid services and no Anthropic API at runtime. Use local Whisper and Ollama.
   - Claude never watches raw video.
-  - Prefer proven tools: check stars, last commit and licence, and tell the user before installing.
-  - Look and behaviour live in `config/*.yaml`.
-  - Secrets go in `.env`.
-  - Nothing posts while `review.mode: manual`.
-  - No browser-automation uploaders.
-  - No cutscene or spoiler clips.
-  - Honour the blocklist. `allowed` is a note only and never blocks.
-  - Commit at each milestone, with explicit paths (never `.DS_Store`, `phones/` or `.claude/handoffs/`).
-- **Look:** approved. Plumbing sessions must not change `render/` or `style.yaml`.
-- **Talking to the user:** they write casually and by voice. Use plain English: say what works and what doesn't, how to run each step, and which session and model to run next.
-
-## S8 part 1b: the user's review of the previews (2026-11-17 ~22:30), what to build next (Opus 5.5)
-The user watched every file in `data/clips/preview/`. Verdicts:
-- **Captions, layouts, clip lengths: good.** Keep them.
-- **Profanity: DONE.** The user approved "F***ING" style. `captions.mask_profanity: true` + `mask_roots` in style.yaml; `captions.mask()`; tested.
-- **Circles/arrows: the motion-based auto is the wrong idea.** The hand-set arrow on `1_109` looked random to them. Use marks ONLY:
-  1. **As a hook at the very start:** the hook/title names a subject ("he's running...") -> circle + arrow on that subject, FOLLOWING it for the first ~2-3 s, so viewers know what to watch.
-  2. **When the speaker points something out** ("look here", "look at that", "right there", "see that guy").
-  Otherwise no marks (most clips). A zoom-in on the spot is an alternative they mentioned.
-  Idea to try: `gemma4:26b` is installed in Ollama and should take images. Give it 1-3 frames + the hook text and ask for the subject's box or "none", then follow it with an OpenCV tracker (CSRT/KCF) for the hook seconds. Drop or disable the motion-blob auto (`marks.auto`).
-- **Face tracking: unconvincing.** `fc2_off/fc2_on.mp4` were a synthetic test (xQc's webcam zoomed in and panned left-right). The user saw no face following and found it confusing. Test on REAL footage: a stream with a moving or full-screen camera. Don't show synthetic demos. The A-layout cam-box tracking barely moves (about 15 px).
-- **Sound effects:**
-  - The "what" boom (`1_721`) is "really good", but should be slightly louder (+2-3 dB).
-  - Scream hits (`22_10`, `28_30`) were NOT audible. Make them louder, use a bigger sound (`cinematic-*`, `impact-heavy-hard`) or put them in the gap after the scream.
-  - **Use MORE effects, editor-style, but in the right places:**
-    - a whoosh at the start and at cuts;
-    - a riser building tension that ends on the payoff (the main spike or loudest moment);
-    - a boom or hit on the payoff;
-    - other standard Shorts sounds.
-  - Research how GTA Shorts use them. Options: web guides, or download 3-5 top GTA 5/6 Shorts and analyse their audio for SFX onsets (no watching video). The user can also send example Shorts. More CC0 sounds from wyzowl/sfx-kit (risers, reverse whooshes, medium whooshes, cinematic hits) go into `assets/sfx/` + `sounds.yaml` + LICENCES.md.
-- **Next test = 5-10 NEW clips from a NEW source** (a GTA 5 YouTube video or a live stream now), NOT the old xQc/rehearsal clips. Each shows captions + effects, and marks/tracking only where they belong. Write them to `data/clips/preview2/` (never `data/clips/`, never touch the DB rows of old clips). The user reviews and says which work.
-- All S8 switches stay off in `style.yaml` until the user approves that new batch. Profanity masking is the exception: it is ON.
-
-## S8 part 1 (2026-11-17, Opus 5.5): look upgrades, all OFF until the user approves
-Switches in `config/style.yaml` (all `enabled: false`; with all off the ffmpeg command and filtergraphs are byte-identical to before, guarded by `tests/test_look_upgrades.py`):
-- **`sound_effects`** (`studio/render/sfx.py`): 10 CC0 WAVs from wyzowl/sfx-kit in `assets/sfx/` (metadata in `assets/sfx/sounds.yaml`, licence rows in `assets/LICENCES.md`). Kinds: bro_what (boom), fail (womp), laugh (pop, only written "haha/lol", Whisper drops real laughs), scream (hit as a loud burst ends). Word triggers need the voice ≥6 dB over the clip median; a lone "what" needs a 0.3 s pause around it. Max 2 per clip, 6 s apart. Mixed AFTER loudnorm (voice level unchanged, measured ±0.1 dB), then a limiter. On 9 test clips: 4 got effects. Levels are a guess: measured energy only +0.1 to +2.5 dB, so they may be too quiet. **The user must listen** to `data/clips/preview/{22_10,1_721,1_1752,28_30}.mp4`.
-- **`marks`** (`studio/render/marks.py`): circle or arrow, drawn in the ASS file. Auto = one compact blob that moves on its own (camera pan removed) and travels ≥1× its size; first version circled grass/a TV/a wall on 3 of 9, the strict version fires on 0 of 9. By hand: `uv run studio mark <clip> T X Y [--kind arrow] [--size 0.1]` (X, Y = 0–1 on the finished clip), `--none`, `--clear`; stored in `data/marks.json`, overrides auto. Demo: circle on `1_1563`, arrow on `1_109` (preview files only; the marks were cleared from `data/marks.json` afterwards).
-- **`face_track`** (`studio/render/facetrack.py`): YuNet at 5 fps, median filter, hold on misses, deadband, smoothing, speed cap, driven by `sendcmd` on a named crop. Layout A: the cam crop follows the face inside the box (xQc's box only leaves ~15 px of room). No box + a big face in ≥40% of samples (full-screen camera): the B crop follows the face. Simulated moving cam: face off-centre median 285 → 93 px, max step 7 px/frame.
-- **Clip 53 fix:** auto B now becomes C when the source has a black band ≥15% of its height (`layout_b.black_band_to_c`; `L.black_band`). This is ON by default (only OpTic multi-POV sources hit it so far).
-- Demo renders and three contact sheets: `data/clips/preview/` (originals in `data/clips/` untouched; the DB was not changed).
-- Not done: profanity masking in captions (asked the user; it changes the caption look).
-- Black-band check run over all 20 rendered moments: only clip 53 (OpTic) trips it.
-- Found, pre-existing (not S8): one-pass loudnorm leaves some clips short of -14 LUFS (`1_1752` -17.0, `28_30` -19.1 in the ORIGINAL renders). Possible fix later: two-pass loudnorm. Not changed before launch.
+  - Prefer proven tools. Check stars, last commit and licence, and tell the user in 1–2 lines before installing.
+  - Look and behaviour live in `config/*.yaml`. Secrets go in `.env`.
+  - Nothing posts while `review.mode: manual`. No browser-automation uploaders.
+  - No cutscene or spoiler clips. Honour the blocklist; `allowed` is a note only.
+  - Commit with explicit paths, never `.DS_Store`, `phones/` or `.claude/handoffs/`.
+- **This task:**
+  - Ask before changing the approved caption or title look.
+  - Don't edit `live.py`, `ingest/`, `chat/` or `detect/` (live mode may run).
+- **The user's feedback on the previews:**
+  - "Captions everything look very good." Webcam + video layout is good, and long clips are fine.
+  - **Arrows/circles:** "we don't want arrows like appearing randomly." Use them only:
+    - (1) as a **hook at the very start**: the opening line names a subject ("oh he's running"), so put a circle and arrow on that person and **follow them** for the first seconds, "so the viewers know what to look for";
+    - (2) when the streamer says "look here", "look at that" and similar.
+    - Otherwise none: "mostly you don't actually need to even use them." A zoom-in on the spot is an acceptable alternative.
+  - **Sound effects:**
+    - The "what" boom on `1_721` is "really good", but should be slightly louder.
+    - Scream hits on `22_10` and `28_30`: "I didn't hear anything."
+    - "We generally use a lot more sound effects": risers building tension, whooshes, "basic sound effect that everyone uses". Only "in the right place, because using them random places is not gonna work."
+    - They want research on how GTA Shorts do it. They offered to send example Shorts.
+  - **Face tracking:** the synthetic `fc2_*` demo was confusing and "doesn't follow his face." Test only on real footage.
+  - **Test clips:** they want **5–10 NEW clips from new content** (a GTA 5 YouTube video or a live stream now), not the old clips "over and over". Show captions, effects, and arrows/circles and tracking where they belong. They will say which work.
+- They write casually and by voice. Reply in plain English: say what works and what doesn't, and how to run it.
 
 ## Current state
-- Commits on `main`:
-  - `a30255c`: rehearsal.
-  - `bc10ff4`: emote spam is never capped.
-  - `b81ffa8`: handoff note on the Kick decision.
-- 29 tests pass.
-- **Rehearsal (PLAN §13 step 1) is DONE.** Each platform made a clip from a real trigger:
-
-| Platform | Moment | Clip | Trigger | Title |
-|---|---|---|---|---|
-| Kick (ramee) | 36 | `data/clips/5_11.mp4` | loudness | "100 Subs Launches You 1000 Feet In The Air", score 8 |
-| YouTube (OpTic) | 45 | `data/clips/14_0.mp4` | loudness | score 8 |
-| YouTube (OpTic) | 53 | `data/clips/22_10.mp4` | chat | score 8 |
-| Twitch (formal) | 59 | `data/clips/28_30.mp4` | chat (Tier B rewind) | "When the Heist Setup Goes Wrong" |
-
-- Spike to finished clip: about 43 s mean.
-- **VOD mode** works on YouTube, Twitch and Kick. The Twitch and Kick tests gave 0 clips: loudness alone picks chatter on RP streams, and 12 moments judged were all dropped.
-- The full details are in the top block of `.claude/handoff.md`. The PLAN §13 status table is updated.
+- **Commits on `main`:**
+  - `5560e55`: S8 part 1.
+  - `d12da0a`: handoff checks.
+  - `11064dc`: profanity masking, plus the feedback written into `.claude/handoff.md`.
+- 40 tests pass (`uv run pytest`).
+- **Built, all `enabled: false` in `config/style.yaml`.** With everything off, the ffmpeg command and filtergraphs are byte-identical to before; `tests/test_look_upgrades.py` guards this.
+  - `studio/render/sfx.py`: placement from words + a 100 ms loudness envelope, kinds bro_what/fail/laugh/scream. The audio graph mixes the effects after loudnorm with `amix normalize=0`, then `alimiter`.
+  - `studio/render/marks.py`: motion-blob auto (wrong concept; drop it), a manual sidecar `data/marks.json` (currently empty), and ASS circle/arrow drawing. `to_output` maps source or `space:"out"` coordinates.
+  - `studio/render/facetrack.py`: YuNet at 5 fps, median filter, hold on misses, deadband, smoothing and a speed cap, output as a `sendcmd` script driving `crop@cam` / `crop@game`.
+  - `studio/render/vertical.py`: `render(..., style=, out_dir=, info=)` and `ffmpeg_cmd()`.
+  - `studio/render/layout.py`: `build(..., track=)` and geo keys `game`, `game_b`, `cam_crop`, `game_crop`.
+  - `studio/cli.py`: `studio mark <clip> T X Y [--kind arrow] [--size] [--none|--clear]`.
+- **ON by default:**
+  - `captions.mask_profanity: true` with `mask_roots`. FUCKING becomes F***ING (`captions.mask()`). Approved by the user.
+  - `layout_b.black_band_to_c: 0.15`: an auto-B clip from a source with a black band becomes layout C (`L.black_band`). Only clip 53 (OpTic) trips it across all 20 rendered clips.
+- **Sounds:** 10 CC0 WAVs from wyzowl/sfx-kit (46★, pushed 2026-10-20) in `assets/sfx/`, metadata (sync, lufs) in `assets/sfx/sounds.yaml`, licence rows in `assets/LICENCES.md`.
+- **Preview renders** are in `data/clips/preview/`, with sheets 1–3 and the fake `fc2_off/on.mp4` (fc2 can be deleted). The originals in `data/clips/` and the DB are untouched.
+- The demo script was in the scratchpad (may be gone). It re-rendered DB moments with a style override (all three switches on) into `preview/` without `db.update`.
 
 ## Decisions and dead ends
-- **Copy-paste raid cap** (`detect/chat.py`, `live.chat.repeat_cap: 3`, `repeat_min_words: 3`).
-  - A message of 3+ words with the same first words counts at most 3 times per 10 s bin.
-  - Exempt: one repeated token, or all hype words ("KEKW KEKW KEKW" is the real spike in big chats).
-  - Reason: a "fuck your mod" raid made a fake 38× spike.
-  - Fixture: `tests/fixtures/chat_raid.jsonl`.
-- **Kick chunk gaps were false.** Kick delivers in bursts, so chunk names lag the content by up to 30 s and then catch up. Nothing is lost.
-  - Fix: `ingest/live.chunk_len()` (ffprobe audio packets) + `contiguous_run(lengths=)`. A hole is now a lag that stays raised.
-  - Setting: `live.hole_s: {kick: 10}`; others keep the fixed 10 s grid.
-  - 5 s was too tight, because normal jitter is ±5 s.
-- **yt-dlp's kick:vod extractor is broken** (Kick v1 API 404).
-  - `ingest/download.kick_vod()` reads `api/v2/channels/<slug>/videos` via curl, with 3 retries, because Kick returns 403 to Python and the API sometimes answers empty.
-  - It downloads the HLS `source` and only finds a channel's latest videos.
-- **`--channels kick/x`** now looks up its chatroom itself: `chat/kick.lookup_chatroom`.
-- **Tuning**, from an offline replay of saved chat (`data/chat/*.jsonl`) and chunk loudness through the real detector classes:
-  - Chat `burst_x` 3.0 → 4.0. A busy Kick chat went from 15/h to 8/h, and the 6–9× spikes are kept.
-  - Loud: `z` binds, not `min_ratio` (real bursts are 3.5–6×). z stays at 4.0; z 4.5 lost a kept clip. `cooldown_s` 20 → 90.
-  - The replay script lived in the scratchpad (not saved).
-- **The user decided: keep both chat and loudness triggers on Kick.**
-  - This gives about 17 fires/h on ramee, against a budget of 6–10 per channel (one worker handles about 80/h in total).
-  - The fallback, if the queue backs up: add `kick` to `CHAT_READERS` in `studio/live.py`.
-- **Don't run `studio vod` while `studio live` runs:** `db.connect()` has no WAL/busy_timeout, and both use the GPU.
+- **Motion-blob auto marks: dead end.**
+  - The first version circled grass, a TV and a wall on 3 of 9 clips.
+  - The strict version (with a "must travel" test) fired on 0 of 9.
+  - The user rejects random marks anyway. Replace it with hook/speech-cue marks.
+- **Hand-placed arrow on `1_109`** looked random to the user. Don't place marks from guessed coordinates.
+- **SFX levels:**
+  - Effects mixed after loudnorm keep the voice level unchanged (measured ±0.1 dB).
+  - Effects placed at a scream's peak are masked. Moving the hit to the scream's end and raising the gain to 0 dB was still inaudible: the measured energy rose only +0.1 to +0.7 dB.
+  - Current gains: bro_what +8, fail +7, laugh +1, scream 0.
+  - A lone word ("what") needs a 0.3 s pause on both sides (`isolate_s`); without it, "what" fired on most clips.
+- **Face tracking:**
+  - With xQc's cam box there is only about 15 px of room, so it is nearly invisible.
+  - The full-screen-face mode gates at `presence: 0.4`, because xQc looks away and 0.6 failed.
+  - The synthetic test confused the user. Never show synthetic demos.
+- **Loudness:** one-pass loudnorm leaves some originals short of target (`1_1752` −17.0, `28_30` −19.1 LUFS). This was already the case before S8. Fixing it is a later job (two-pass); don't change it before launch.
+- **Rehearsal decisions:**
+  - Keep both chat and loudness triggers on Kick.
+  - Don't run `studio vod` while `studio live` runs (no WAL, shared GPU).
+
+## S8 part 1b results (2026-11-18)
+- **Swear masking was never broken.** `mask()` gives F\*\*\*ING / S\*\*\*, and the video shows the stars (checked on the preview2 sheet). Chat Markdown ate the `***`. Always write masked words in backticks in replies.
+- **Marks** (`studio/render/marks.py`, rewritten; motion-blob auto removed):
+  - Triggers are only (1) the hook = words in the first 4 s and (2) cue phrases ("look at that", "right there"...).
+  - gemma4:26b gets one frame of the gameplay crop and the words. It must return a `quote` that is really in the transcript and that names the target (a pronoun, or a word shared with the target). Then come the sure ≥ 0.7 and box-size gates.
+  - TrackerMIL follows the target for 3 s at 10 fps. Circle + arrow move with `\move`.
+  - Without the quote check, gemma copied the prompt's example ("the running character" for "what is wrong with this"), so never put examples in that prompt.
+  - Result on 7 clips: 1 mark (31_883, butler at 15.7 s, on target). The other 6 correctly got none.
+- **SFX** (`sfx.py`): intro whoosh, a whoosh on layout switches, a riser ending on the payoff, a payoff boom (strongest reaction or the loud onset), kind `hype` (808), scream hit `at: after` (in the gap). A phone-audible `layer` (impact-heavy-hard) goes on every boom, and `duck_db: 5` dips the voice for 0.25 s under hits.
+  - Why the layer: booms are 30-150 Hz. Measured +13 to 23 dB there but ~0 dB in 250-2000 Hz, the band phone speakers play. That explains "didn't hear" the scream hits.
+  - Metric to use: effect vs voice in 250-2000 Hz over the hit's 0.3 s (`evr`). LUFS and 0.6 s windows undercount. Now: reaction layers -1 to +21 dB, payoff layers -1 to -4 dB.
+- **Face tracking on real footage** (Kai, cam box): followed on 2 of 7 clips (range 25 and 53 px, max step 2 px). Held still on 5, where he didn't move. Full-screen-face mode is still unverified on real footage (no source with one yet).
+- **Bug fixes:**
+  - Title-box balance loop hung forever when one word is wider than the box (`w2 >= widest` break).
+  - Over-long titles shrink (down to 60%) instead of being cut at max_lines.
+  - Titles are masked too.
+- **New source** id 31 (Kai Cenat, zwSKvEUhSjw). Moments 86-106 are judged; 7 kept, with state left at `judged` (rendered only into preview2, no DB clip_path).
+- **Streamers:** added Jelly (youtube @Jelly) and Slogo (@Slogo), tier A. The user says Jelly flies to NZ to stream early. The web only shows a joke Short plus YouTube's launch show line-up.
+- **Scripts** (scratchpad, may be gone): stage1 (vod without render), stage2 (render with all extras ON into preview2), check (sheet), evr/band (levels).
 
 ## Next steps
-1. ~~S8 part 1~~ DONE (see the block above). Next: **S8 part 1b (Opus 5.5)**, see its block above. Then the full test.
-   - Sound effects, circles/arrows, face tracking, all switchable in `style.yaml`. Free-licence sounds only, listed in `assets/LICENCES.md`.
-   - Also fix:
-     - (a) Clip 53 (`22_10.mp4`, OpTic multi-POV overlay): a large empty black band on top. The facecam/layout B misread the overlay.
-     - (b) Uncensored profanity in captions ("FUCKING" in clip 59): decide whether to mask it, which is a platform risk.
-2. **Full test (Sonnet 5.5)** with the new look on, plus a launch checklist.
-3. **Warm-up clips (Sonnet 5.5)** from YouTube GTA 6 talk videos: the judge gets a "talk" mode.
-4. **Wed 11:00 UTC:** start `uv run studio live` in the background.
-   - Fallback: `--channels kick/n3on:A,...` with whoever is live.
-5. **S4 (Sonnet 5.5), after launch starts:** review page and posting. It must not edit `live.py`, `ingest/` or `pipeline.py` while live runs.
-6. **Later:**
-   - S9: chat replay as a VOD signal.
-   - S6: campaigns.
-   - S8 part 2: analytics, German.
-   - The judge's handling of RP moments: it drops most for having "no gameplay action".
+1. The user listens to `data/clips/preview2/` (see LISTEN.md there) and says which switches go on (`sound_effects`, `marks`, `face_track` in style.yaml).
+2. Then the full test (Sonnet 5.5) and launch Wed 11:00 UTC with `uv run studio live`.
+3. Later: AI-voiceover commentary videos (the user's other format; parked until after clipping works).
 
 ## Waiting on the person
-- Approval to make posting public (`review.mode` is still `manual`).
-- Platform account setup (during S4).
+- Verdicts on the new 5–10 clip batch, then which S8 switches to turn on.
 - Older items:
-  - whether the layout C title look is good;
-  - whether IShowSpeed or the YouTube launch show URL is known (the show entry has `live: false`).
+  - approval to make posting public (`review.mode` is still `manual`);
+  - platform account setup (S4);
+  - the YouTube launch show URL.
 
 ## Key facts
 - **Project:** `/Users/tomasspesikaspetersons/Claude Projects/GTA6 Studio`.
 - **ffmpeg:** use ffmpeg-full at `/opt/homebrew/opt/ffmpeg-full/bin/` via `render.layout.tools()`.
-- **Models:** judge `qwen3.8:27b` (Ollama); Whisper `mlx-community/whisper-large-v3-turbo`.
-- **Commands:** `uv run studio doctor | vod <url> [--top N] | live [--channels kick/x:A,youtube/Handle:A,twitchname:B] | render | review | post`. `review` and `post` are stubs.
+- **Shell:** zsh doesn't word-split, so use `bash -c` for loops. Foreground `sleep` is blocked. `rm` inside `bash -c` is blocked by a safety check.
+- **Ollama models:** `qwen3.8:27b` (judge) and `gemma4:26b`. Whisper: `mlx-community/whisper-large-v3-turbo`.
+- **Clip name** = `{source_id}_{int(j_start)}`. Moments have `words` and `keywords` JSON in the DB.
+- **Moments used in the previews:** 4, 5, 13, 14, 18, 22, 36, 53, 59 (clips `1_1873`, `1_1752`, `1_109`, `1_721`, `1_1563`, `1_1969`, `5_11`, `22_10`, `28_30`).
 - **Finding live streams:**
-  - Twitch: GQL `https://gql.twitch.tv/gql` with Client-ID `kimne78kx3ncx6brgo4mv6wki5h1ko`, `game(name:"Grand Theft Auto V"){streams…}`.
-  - Kick: `curl -A Mozilla/5.0 https://kick.com/api/v2/channels/<slug>` (`livestream.categories`, `chatroom.id`). The Kick subcategory filter doesn't work.
-  - YouTube: `yt-dlp --flat-playlist 'https://www.youtube.com/results?search_query=gta+5+live&sp=EgJAAQ%253D%253D'`.
-- **Live logs:**
-  - `data/logs/YYYY-MM-DD-live.log` (local date).
-  - The rehearsal stdout went to `data/logs/rehearsal*-stdout.log`.
-  - The "CLIP READY" line names the channel.
-- **Unlocks (UTC):** NZ Wed 11:00, AU east 13:00, Perth 16:00, CET 23:00, UK Thu 00:00, US Thu 05:00.
-- **Session models:** Sonnet 5.5 for plumbing, Opus 5.5 for the look, Haiku 5.5 for web lookups, Fable for plan changes. The rehearsal ran on Opus 5.5.
-- **Shell gotchas:**
-  - Foreground `sleep` is blocked.
-  - Kick API needs curl, not Python.
-  - Monitor tailing two log files gives duplicate lines.
+  - Twitch: GQL `https://gql.twitch.tv/gql`, Client-ID `kimne78kx3ncx6brgo4mv6wki5h1ko`.
+  - Kick: `curl -A Mozilla/5.0 https://kick.com/api/v2/channels/<slug>`.
+  - YouTube live search: `yt-dlp --flat-playlist 'https://www.youtube.com/results?search_query=gta+5+live&sp=EgJAAQ%253D%253D'`.
+- **Session models:**
+  - Opus 5.5: the look (this work).
+  - Sonnet 5.5: plumbing.
+  - Haiku 5.5: web lookups.
+  - Fable: plan changes.

@@ -114,12 +114,19 @@ Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,
     if layout == "C" and title:
         tb = style["layout_c"]["title_box"]
         text = title.upper() if tb["uppercase"] else title
+        if cap.get("mask_profanity"):
+            text = " ".join(mask(t, cap.get("mask_roots", [])) for t in text.split())
         txt = tb.get("style", "box") == "text"
         inner = W - 2 * tb["margin_x"] - (0 if txt else 2 * tb["padding_x"])
+        tb = dict(tb)
         lines, widest = wrap(text, cap["font_file"], tb["font_size"], inner)
+        floor = tb["font_size"] * 0.6
+        while len(lines) > tb["max_lines"] and tb["font_size"] > floor:  # too long: smaller text, never a cut title
+            tb["font_size"] = int(tb["font_size"] * 0.92)
+            lines, widest = wrap(text, cap["font_file"], tb["font_size"], inner)
         while len(lines) > 1:  # balance: narrow the box while the line count stays the same
             l2, w2 = wrap(text, cap["font_file"], tb["font_size"], widest - 20)
-            if len(l2) != len(lines):
+            if len(l2) != len(lines) or w2 >= widest:  # w2 >= widest: one word is wider than the box, stop
                 break
             lines, widest = l2, w2
         lines = lines[: tb["max_lines"]]

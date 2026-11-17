@@ -10,6 +10,7 @@ from . import layout as L
 from . import facecam as FC
 from . import marks as M
 from . import sfx as S
+import numpy as np
 
 
 def _mix_pick(style: dict, key: str) -> str | None:
@@ -146,10 +147,11 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
         events = []
         if isinstance(sfx_cfg, dict) and sfx_cfg.get("enabled"):
             env = S.envelope(src["path"], a, b)
-            events = S.place(clip_words, env, b - a, sfx_cfg) if len(env) else []
+            cuts = sorted({round(x, 2) for r in off for x in r})
+            events = S.place(clip_words, env, b - a, sfx_cfg, cuts) if len(env) else []
             info["sfx"] = events
         if isinstance(mk_cfg, dict) and mk_cfg.get("enabled"):
-            ev = _marks(src, a, b, w, h, name, clip_words, env, geo, cam, track, style, info)
+            ev = _marks(src, a, b, w, h, name, clip_words, title, geo, cam, track, style, info)
             if ev:
                 ass_text += "\n".join(ev) + "\n"
         ass = os.path.join(d, "c.ass")
@@ -157,7 +159,8 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
         fonts = str(FONTS).replace("'", r"\'")
         vf = f"{graph};[base]fps={out['fps']},ass=filename='{ass}':fontsdir='{fonts}',format=yuv420p[v]"
         af = f"loudnorm=I={out['loudness_lufs']}:TP=-1.5:LRA=11,aresample=48000"
-        sfx_args, sfx_graph = S.audio_graph(events, af) if events else (None, None)
+        sfx_args, sfx_graph = (S.audio_graph(events, af, duck_db=sfx_cfg.get("duck_db", 0), duck_s=sfx_cfg.get("duck_s", 0.25))
+                              if events else (None, None))
         tmp = os.path.join(d, "out.mp4")
         r = subprocess.run(ffmpeg_cmd(ffmpeg, src["path"], a, b, vf, af, out["crf"], tmp, sfx_args, sfx_graph),
                            capture_output=True, text=True)
@@ -168,36 +171,38 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
     return str(path), lay, note + (f"; extras {extra}" if extra else "")
 
 
-def _marks(src, a, b, w, h, name, clip_words, env, geo, cam, track, style, info) -> list[str]:
-    """ASS lines for circles/arrows: hand-set ones from data/marks.json, else automatic ones."""
+def _marks(src, a, b, w, h, name, clip_words, title, geo, cam, track, style, info) -> list[str]:
+    """ASS lines for circles/arrows: hand-set ones from data/marks.json, else hook / speech-cue ones."""
     cfg = style["marks"]
     W, H = style["output"]["width"], style["output"]["height"]
-    hand = M.manual(name)
-    if hand is not None:
-        marks, how = hand, "by hand"
-    elif cfg.get("auto", True):
-        if env is None:
-            env = S.envelope(src["path"], a, b)
-        probe_cfg = {**(style.get("sound_effects") or {}), "enabled": True, "intro_whoosh": False}
-        keys = [e["t"] for e in S.place(clip_words, env, b - a, probe_cfg)] if len(env) else []
-        if not keys and len(env):
-            keys = [S._peak_t(env, 0.6, b - a - 0.6)]
-        marks, notes = M.auto(src["path"], a, b, w, h, keys, geo["game"][0], cam, cfg)
-        how = f"auto ({'; '.join(notes)})"
-    else:
-        return []
     path = track.get("game_path")
     fps = style["output"]["fps"]
     at = (lambda t: float(path[min(len(path) - 1, int(t * fps))])) if path is not None else None
+    g = {**geo, "out_wh": (W, H)}
+    hand = M.manual(name)
     out = []
-    cap_h = style["captions"]["size"] * 0.7
-    for m in marks:
-        o = M.to_output(m, {**geo, "out_wh": (W, H)}, w, h, at)
-        if not o or (hand is None and o["r"] > cfg.get("max_radius", 150)):
-            continue
-        cy = geo.get("caption_y_b") if any(s0 <= m["t"] < e0 for s0, e0 in geo.get("b_ranges", [])) else geo["caption_y"]
-        if abs(o["y"] - cy) < max(o["r"], 60) + cap_h:  # never on the caption band
-            continue
-        out.append(o)
-    info["marks"] = {"how": how, "placed": [{k: round(v, 2) if isinstance(v, float) else v for k, v in o.items()} for o in out]}
+    if hand is not None:
+        how = "by hand"
+        out = [o for o in (M.to_output(m, g, w, h, at) for m in hand) if o]
+    else:
+        found, notes = M.find(src["path"], a, clip_words, b - a, title, geo["game"][0], cfg)
+        how = "; ".join(notes) or "no hook words and no cue"
+        cap_h = style["captions"]["size"] * 0.7
+        for f in found:
+            pts = []
+            for t, x, y, r in f["path"]:
+                o = M.to_output({"t": t, "x": x / w, "y": y / h, "r": r / w}, g, w, h, at)
+                if not o:  # left the visible picture: stop following here
+                    break
+                pts.append((t, o["x"], o["y"], o["r"]))
+            if len(pts) < 4:
+                how += f"; {f['target']} not in the visible picture"
+                continue
+            cy = geo.get("caption_y_b") if any(s0 <= f["t"] < e0 for s0, e0 in geo.get("b_ranges", [])) else geo["caption_y"]
+            if abs(np.median([p[2] for p in pts]) - cy) < cap_h:  # never on the caption band
+                how += f"; {f['target']} sits under the captions"
+                continue
+            out.append({"t": f["t"], "path": pts, "target": f["target"], "why": f["why"]})
+    info["marks"] = {"how": how, "placed": [{k: v for k, v in o.items() if k != "path"} |
+                                            ({"points": len(o["path"])} if "path" in o else {}) for o in out]}
     return M.ass_events(out, cfg, W, H)

@@ -15,3 +15,12 @@ Only free-licence assets live in `assets/`.
 | sfx/notification-failure-deflate.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/notifications/notification-failure-deflate.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
 | sfx/notification-failure-wobble.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/notifications/notification-failure-wobble.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
 | sfx/digital-glitch-clear.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/digital/digital-glitch-clear.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
+| sfx/whoosh-fast-hard.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/whooshes/whoosh-fast-hard.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
+| sfx/whoosh-medium-hard.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/whooshes/whoosh-medium-hard.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
+| sfx/reverse-whoosh-medium-strong.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/reverse-whooshes/reverse-whoosh-medium-strong.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
+| sfx/riser-1s-strong.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/risers-and-fallers/riser-1s-strong.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
+| sfx/riser-2s-strong.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/risers-and-fallers/riser-2s-strong.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
+| sfx/cinematic-slam-big.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/cinematic-hits/cinematic-slam-big.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
+| sfx/bass-808-medium.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/booms-and-bass/bass-808-medium.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
+| sfx/boom-drop-strong.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/booms-and-bass/boom-drop-strong.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
+| sfx/boom-hit-strong.wav | SFX Kit by Wyzowl, https://github.com/wyzowl/sfx-kit (`sounds/booms-and-bass/boom-hit-strong.wav`) | CC0 1.0 (sfx/SFX-KIT-LICENSE.txt) |
