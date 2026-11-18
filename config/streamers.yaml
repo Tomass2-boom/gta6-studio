@@ -101,7 +101,7 @@ streamers:
     tier: A
     allowed: null
     note: "announced GTA VI stream 9 PM ET Nov 18 = Thu 02:00 UTC (03:00 CET); NZ trip reported but unconfirmed; ~12 h daily streams"
-    facecam: [0, 560, 640, 520]   # green-screen cut-out, bottom-left (measured on 6tvRv7N1E_c, 2026-11-18)
+    facecam: [0, 500, 640, 580]   # green-screen cut-out (box starts above his hair for headroom), bottom-left (measured on 6tvRv7N1E_c, 2026-11-18)
     ref: [1920, 1080]
   - name: xQc
     platform: youtube

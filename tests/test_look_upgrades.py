@@ -241,3 +241,18 @@ def test_cutout_cam_found_from_a_low_corner_face(monkeypatch):
     assert V._cutout_box(st, {"path": "x"}, 0, 30, 1920, 1080) is None
     monkeypatch.setattr(T, "faces_over_time", lambda *a, **k: (None, [None] * 30))
     assert V._cutout_box(st, {"path": "x"}, 0, 30, 1920, 1080) is None
+
+
+def test_small_details_divider_grade_and_cutout_panel():
+    """Divider line in layout A, subtle grade before captions, smaller cut-out panel that keeps the head."""
+    from studio.render import vertical as V
+    st = load("style")
+    g, _ = L.build("A", st, 1920, 1080, (0, 500, 640, 580))
+    assert "drawbox" in g and g.index("vstack") < g.index("drawbox") < g.index("[base]")
+    off = {**st, "layout_a": {**st["layout_a"], "divider": {"enabled": False}}}
+    assert "drawbox" not in L.build("A", off, 1920, 1080, (0, 500, 640, 580))[0]
+    assert V._grade(st).startswith("eq=") and V._grade({**st, "grade": {"enabled": False}}) == ""
+    cut = {**st, "layout_a": {**st["layout_a"], "cam_height": 0.30, "_cutout": True}}
+    _, geo = L.build("A", cut, 1920, 1080, (0, 500, 640, 580))
+    cw, ch, _ = geo["cam_crop"]
+    assert ch >= 570 and cw > 640  # whole cut-out height kept, panel runs on into the game

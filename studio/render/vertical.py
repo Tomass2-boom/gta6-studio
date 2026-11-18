@@ -138,6 +138,18 @@ def _track(style: dict, src: dict, a: float, b: float, w: int, h: int, lay: str,
     return tr
 
 
+def _grade(style: dict) -> str:
+    """Subtle colour grade + sharpening on the picture (before captions, so they stay pure white).
+    Small on purpose: streams look flat and soft after upscaling; this makes them look 'finished'."""
+    g = style.get("grade") or {}
+    if not g.get("enabled"):
+        return ""
+    f = f"eq=contrast={g.get('contrast', 1)}:saturation={g.get('saturation', 1)}:brightness={g.get('brightness', 0)}:gamma={g.get('gamma', 1)},"
+    if g.get("sharpen"):
+        f += f"unsharp=5:5:{g['sharpen']}:5:5:0,"
+    return f
+
+
 def ffmpeg_cmd(ffmpeg: str, src_path: str, a: float, b: float, vf: str, af: str, crf, out: str,
                sfx_args: list | None = None, sfx_graph: str | None = None) -> list[str]:
     """The ffmpeg call. Without effects this is exactly the pre-S8 command (voice through -af)."""
@@ -162,6 +174,10 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
     W, H = out["width"], out["height"]
     w, h = L.probe(src["path"])
     lay, cam, off, note = choose_layout(style, src, a, b, w, h, force_layout, name)
+    cut = (style["layout_a"].get("cutout") or {})
+    if lay == "A" and ("no cam border" in note or "cut-out" in note) and cut.get("enabled"):
+        # Borderless cut-out cam (IShowSpeed style): smaller face panel, more room for the action.
+        style = {**style, "layout_a": {**style["layout_a"], "cam_height": cut["cam_height"], "_cutout": True}}
     clip_words = [{**x, "start": x["start"] - a, "end": x["end"] - a} for x in words
                   if x["start"] >= a - 0.05 and x["end"] <= b + 0.05]
     ffmpeg = L.tools()[0]
@@ -188,7 +204,7 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
         ass = os.path.join(d, "c.ass")
         open(ass, "w").write(ass_text)
         fonts = str(FONTS).replace("'", r"\'")
-        vf = f"{graph};[base]fps={out['fps']},ass=filename='{ass}':fontsdir='{fonts}',format=yuv420p[v]"
+        vf = f"{graph};[base]fps={out['fps']},{_grade(style)}ass=filename='{ass}':fontsdir='{fonts}',format=yuv420p[v]"
         af = f"loudnorm=I={out['loudness_lufs']}:TP=-1.5:LRA=11,aresample=48000"
         sfx_args, sfx_graph = (S.audio_graph(events, af, duck_db=sfx_cfg.get("duck_db", 0), duck_s=sfx_cfg.get("duck_s", 0.25))
                               if events else (None, None))

@@ -15,6 +15,15 @@ layout: auto
 # Try other layouts on a share of clips so analytics (M8) can tell which gets more views.
 # Each entry: share of clips (0-1) rendered in that layout instead of the auto choice.
 # A is only used when the streamer has a facecam. Picked by a hash of the clip, so re-renders are stable.
+# Subtle colour grade on the picture (not the captions). Barely visible on its own; streams look less flat.
+grade:
+  enabled: true
+  contrast: 1.05
+  saturation: 1.12
+  brightness: 0.0
+  gamma: 0.98
+  sharpen: 0.45           # unsharp amount after upscaling (0 = off; >0.8 starts to look crunchy)
+
 layout_mix:
   C: 0.2
 
@@ -24,6 +33,15 @@ layout_a:
   gameplay_focus_x: 0.5   # which part of the wide gameplay to keep (0 left, 0.5 centre, 1 right)
   cam_presence: 0.5       # facecam must be seen in this share of the clip to use A (else B)
   switch_min_s: 2         # if the cam is off this long inside an A clip, switch to B for that part
+  cutout:                 # borderless green-screen cams (IShowSpeed): found by face, not by a frame
+    enabled: true
+    cam_height: 0.30      # smaller face panel (head + shoulders + a bit of game), more room for the action
+  divider:                # thin line between the face panel and the game (2026-11-18, "small details")
+    enabled: true
+    px: 6
+    color: black
+    opacity: 0.9
+    shadow: [0.35, 0.2, 0.1]   # 2 px rows fading out under the line
 
 layout_b:
   gameplay_focus_x: 0.5

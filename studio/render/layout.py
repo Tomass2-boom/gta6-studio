@@ -103,6 +103,19 @@ def _crop_aspect(x, y, w, h, aspect, focus_x=0.5, focus_y=0.5):
     return cw, ch, x + round((w - cw) * focus_x), y + round((h - ch) * focus_y)
 
 
+def _divider(style: dict, y: int) -> str:
+    """A thin line where the face panel meets the game, with a soft shadow under it ('' when off).
+    Barely noticed, but it makes the split look finished instead of two videos glued together."""
+    d = (style.get("layout_a") or {}).get("divider") or {}
+    if not d.get("enabled"):
+        return ""
+    t = int(d.get("px", 6)) // 2 * 2
+    out = f",drawbox=x=0:y={y - t // 2}:w=iw:h={t}:color={d.get('color', 'black')}@{d.get('opacity', 0.9)}:t=fill"
+    for i, op in enumerate(d.get("shadow", [])):  # one row per entry, fading out below the line
+        out += f",drawbox=x=0:y={y + t // 2 + i * 2}:w=iw:h=2:color=black@{op}:t=fill"
+    return out
+
+
 def build_switching(style: dict, src_w: int, src_h: int, cam, ranges, track: dict | None = None) -> tuple[str, dict]:
     """Layout A, switching to B during `ranges` (cam off). Captions move with it."""
     ga, geo = build("A", style, src_w, src_h, cam, track)
@@ -133,7 +146,16 @@ def build(layout: str, style: dict, src_w: int, src_h: int, cam=None, track: dic
         gh_out = H - ch_out
         x, y, w, h = cam
         x, y, w, h = x + 2, y + 2, w - 4, h - 4  # stay inside the cam border
-        cw, chh, cx, cy = _crop_aspect(x, y, w, h, W / ch_out, 0.5, A["cam_focus_y"])
+        if A.get("_cutout") and w / h < W / ch_out:
+            # Borderless cut-out (no frame to stay inside): keep the whole head and shoulders and let the
+            # panel run on into the game beside him, like top Speed clips, instead of a tight face crop.
+            chh = h - h % 2
+            cw = min(src_w, round(chh * W / ch_out)) // 2 * 2
+            cx = min(max(0, x + w // 2 - cw // 2), src_w - cw) // 2 * 2
+            cy = y
+            x, w = cx, cw  # the face tracker may move inside this wider box
+        else:
+            cw, chh, cx, cy = _crop_aspect(x, y, w, h, W / ch_out, 0.5, A["cam_focus_y"])
         gw, gh, gx, gy = _crop_aspect(0, 0, src_w, src_h, W / gh_out, A["gameplay_focus_x"])
         # The face already has its own panel: slide the game crop off a side-docked cam (e.g. IShowSpeed's
         # bottom-left cut-out), so the game panel shows the action, not half a face.
@@ -144,7 +166,7 @@ def build(layout: str, style: dict, src_w: int, src_h: int, cam=None, track: dic
         cx, cy = track.get("cam_xy", (cx, cy))
         g = (f"[0:v]split=2[s1][s2];[s1]{_crop('cam', track.get('cam'))}={cw}:{chh}:{cx}:{cy},scale={W}:{ch_out}:flags=lanczos,setsar=1[cam];"
              f"[s2]crop={gw}:{gh}:{gx}:{gy},scale={W}:{gh_out}:flags=lanczos,setsar=1[game];"
-             f"[cam][game]vstack[base]")
+             f"[cam][game]vstack{_divider(style, ch_out)}[base]")
         cap = style["captions"]["position_a"]
         y_cap = ch_out if cap == "seam" else float(cap) * H
         return g, {"caption_y": y_cap, "game": ((gx, gy, gw, gh), (0, ch_out, W, gh_out)),
