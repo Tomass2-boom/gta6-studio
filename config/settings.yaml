@@ -11,6 +11,18 @@ ingest:
 judge:
   model: qwen3.8:27b
   ollama_url: http://localhost:11434
+  # Launch-day hook titles (user 2026-11-18): GTA 6 unlocks in NZ first, most viewers don't know it's out,
+  # so code puts a big true hook in front of the judge's title. Only for live streams after from_utc, or transcripts that name GTA 6
+  # (never a GTA 5 video). Layout C shows the hook as its own line on the video; every layout gets it in the
+  # Shorts title. Turn off (enabled: false) once everyone knows.
+  launch:
+    enabled: true
+    game: GTA 6
+    from_utc: "2026-11-18T11:00:00Z"   # NZ unlock
+    until_utc: "2026-11-21T00:00:00Z"  # US/EU unlock is Thu 05:00 UTC; the "already out?!" surprise fades after
+    hooks: ["GTA 6 IS ALREADY OUT", "GTA 6 JUST DROPPED", "GTA 6 IS OUT EARLY"]   # rotate per clip
+    first_look_hook: "GTA 6 FIRST LOOK"   # when the streamer sees menus / creator / first drive etc. for the first time
+    hook_color: FFE600   # the hook line on the layout C title, own colour so it pops
 whisper:
   model: mlx-community/whisper-large-v3-turbo
   language: en

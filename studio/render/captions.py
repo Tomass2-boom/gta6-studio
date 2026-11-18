@@ -1,6 +1,6 @@
 """ASS subtitle writer: 1-2 word pop-in captions and the layout C title box. All look from style.yaml."""
 import re
-from ..config import ROOT
+from ..config import ROOT, load
 
 FONTS = ROOT / "assets" / "fonts"
 
@@ -94,6 +94,50 @@ def wrap(text: str, font_file: str, size: int, max_w: float) -> tuple[list[str],
     return lines, max((font.getlength(x) for x in lines), default=0)
 
 
+def split_hook(text: str, hooks: list[str]) -> tuple[str | None, str]:
+    """'GTA 6 IS ALREADY OUT: NPC FIGHT' -> ('GTA 6 IS ALREADY OUT', 'NPC FIGHT') when it starts with a launch hook."""
+    for h in sorted(hooks or [], key=len, reverse=True):
+        if text.upper().startswith(h.upper()):
+            rest = text[len(h):].lstrip(" :-\u2013\u2014|")
+            hook = text[:len(h)] + ("".join(c for c in text[len(h):len(h) + 3] if c in "!?"))
+            return hook, rest.lstrip("!? ")
+    return None, text
+
+
+def _hook_title(text: str, hooks: list[str], tb: dict, ff: str, inner: float):
+    """Hook on its own line(s) above the moment. Returns (lines, is_hook flags, widest, font size) or None."""
+    hook, rest = split_hook(text, hooks)
+    if not hook:
+        return None
+    size, floor, cap_n = tb["font_size"], tb["font_size"] * 0.6, tb["max_lines"] + 1
+
+    def lay(sz, wmax):
+        hl, hw = wrap(hook, ff, sz, wmax)
+        rl, rw = wrap(rest, ff, sz, wmax) if rest else ([], 0)
+        return hl, rl, max(hw, rw)
+    hs = size   # the hook stays one line: shrink it a little rather than break "GTA 6 IS OUT / EARLY"
+    while len(wrap(hook, ff, hs, inner)[0]) > 1 and hs > size * 0.7:
+        hs = int(hs * 0.95)
+    hl1, hw1 = wrap(hook, ff, hs, inner)
+    hl, rl, widest = lay(size, inner)
+    if len(hl1) == 1:
+        lay0 = lay
+        def lay(sz, wmax):
+            _, rl_, rw = lay0(sz, wmax)
+            return hl1, rl_, max(hw1, rw)
+        hl, rl, widest = lay(size, inner)
+    while len(hl) + len(rl) > cap_n and size > floor:  # too long: smaller text, never a cut title
+        size = int(size * 0.92)
+        hl, rl, widest = lay(size, inner)
+    while len(rl) > 1:  # balance the moment lines, keep the count
+        h2, r2, w2 = lay(size, widest - 20)
+        if len(h2) != len(hl) or len(r2) != len(rl) or w2 >= widest:
+            break
+        hl, rl, widest = h2, r2, w2
+    lines = (hl + rl)[:cap_n]
+    return lines, [i < len(hl) for i in range(len(lines))], widest, size, (hs if len(hl1) == 1 else size)
+
+
 def build_ass(words: list[dict], keywords: list[str], style: dict, layout: str, geo: dict,
               duration: float, title: str | None = None) -> str:
     out, cap = style["output"], style["captions"]
@@ -119,6 +163,8 @@ Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,
         txt = tb.get("style", "box") == "text"
         inner = W - 2 * tb["margin_x"] - (0 if txt else 2 * tb["padding_x"])
         tb = dict(tb)
+        launch = load("settings")["judge"].get("launch") or {}
+        hooked = _hook_title(text, launch.get("hooks", []), tb, cap["font_file"], inner) if txt else None
         lines, widest = wrap(text, cap["font_file"], tb["font_size"], inner)
         floor = tb["font_size"] * 0.6
         while len(lines) > tb["max_lines"] and tb["font_size"] > floor:  # too long: smaller text, never a cut title
@@ -130,6 +176,9 @@ Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,
                 break
             lines, widest = l2, w2
         lines = lines[: tb["max_lines"]]
+        is_hook, hook_fs = [False] * len(lines), None
+        if hooked:
+            lines, is_hook, widest, tb["font_size"], hook_fs = hooked
         line_h = tb["font_size"] * 1.15
         bw, bh = widest + 2 * tb["padding_x"], len(lines) * line_h + 2 * tb["padding_y"]
         bx, by = (W - bw) / 2, geo["video_top"] - tb["gap"] - bh
@@ -140,7 +189,10 @@ Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,
                      f"{ass_color(tb['outline_color'])},{ass_color('000000', 90)},0,0,0,0,100,100,0,0,1,"
                      f"{tb['outline']},{tb['shadow']},5,0,0,0,1\n")
             ty = geo["video_top"] - tb["gap"] - len(lines) * line_h / 2
-            body = "\\N".join(f"{{\\1c{cols[i % len(cols)]}}}{ln}" for i, ln in enumerate(lines))
+            hc, n_h = ass_color(launch.get("hook_color", "FFE600")), sum(is_hook)
+            fs = (lambda i: f"\\fs{hook_fs if is_hook[i] else tb['font_size']}") if hook_fs else (lambda i: "")
+            body = "\\N".join(f"{{\\1c{hc if is_hook[i] else cols[(i - n_h) % len(cols)]}{fs(i)}}}{ln}"
+                               for i, ln in enumerate(lines))
             events.append(f"Dialogue: 1,{ts(0)},{ts(duration)},Title,,0,0,0,,"
                           f"{{\\pos({W // 2},{ty:.0f})\\q2\\fscx{tb['pop_from']}\\fscy{tb['pop_from']}"
                           f"\\t(0,{tb['pop_ms']},\\fscx100\\fscy100)}}" + body)
