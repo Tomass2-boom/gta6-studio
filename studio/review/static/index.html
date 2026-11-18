@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GTA6 Studio</title>
+<style>
+:root{--bg:#121218;--panel:#1c1c25;--line:#2c2c3a;--text:#f2f2f5;--dim:#9a9aab;--green:#22c55e;--red:#ef4444;
+--pink:#ec4899;--amber:#f59e0b;--blue:#3b82f6;--radius:14px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{display:flex;gap:8px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+header h1{font-size:19px;margin:0 18px 0 0;letter-spacing:.5px}
+header h1 span{color:var(--pink)}
+.tab{background:none;border:0;color:var(--dim);font-size:17px;padding:10px 16px;border-radius:10px;cursor:pointer}
+.tab.on{background:var(--panel);color:var(--text)}
+.badge{background:var(--pink);color:#fff;border-radius:99px;padding:0 7px;font-size:13px;margin-left:4px}
+#pill{margin-left:auto;padding:6px 12px;border-radius:99px;font-size:14px;background:var(--panel)}
+main{padding:18px;max-width:1500px;margin:0 auto}
+section{display:none}section.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+h2{font-size:18px;margin:0 0 12px}
+.dim{color:var(--dim)}
+button.big{font-size:22px;font-weight:700;padding:20px 40px;border-radius:16px;border:0;cursor:pointer;color:#fff;min-width:300px}
+button.btn{font-size:15px;padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:#272733;color:var(--text);cursor:pointer}
+button.btn:hover{background:#30303f}
+button.btn.primary{background:var(--blue);border-color:var(--blue)}
+button.btn.danger{background:none;color:#fca5a5;border-color:#5b2a2a}
+button:disabled{opacity:.45;cursor:not-allowed}
+.go{background:var(--green)}.stop{background:var(--red)}.wait{background:#555}
+.grid2{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;margin-top:16px}
+.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.dot{width:12px;height:12px;border-radius:50%;flex:none;background:#555}
+.dot.live{background:var(--red);box-shadow:0 0 8px var(--red)}.dot.watch{background:var(--amber)}.dot.idle{background:#666}.dot.off{background:#333}
+.act{padding:7px 0;border-bottom:1px solid var(--line);font-size:15px}
+.act.ready{color:#86efac;font-weight:600}.act.good{color:#bbf7d0}.act.skip{color:var(--dim)}.act.error{color:#fca5a5}.act.hype{color:#fde68a}
+.scroll{max-height:62vh;overflow:auto}
+/* clips */
+.clips{display:grid;grid-template-columns:360px 1fr;gap:16px}
+.clist{max-height:calc(100vh - 110px);overflow:auto;display:flex;flex-direction:column;gap:8px}
+.citem{padding:12px;border-radius:12px;background:var(--panel);border:2px solid transparent;cursor:pointer}
+.citem.sel{border-color:var(--pink)}
+.citem b{display:block;font-size:15px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:12px}
+.tag{padding:1px 8px;border-radius:99px;background:#2b2b38;color:var(--dim)}
+.tag.new{background:var(--pink);color:#fff}.tag.posted{background:#14532d;color:#bbf7d0}.tag.grade{background:#1e3a8a;color:#dbeafe}
+.detail{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start}
+.vwrap{position:relative}
+video{height:calc(100vh - 140px);max-height:860px;aspect-ratio:9/16;background:#000;border-radius:12px;display:block}
+#markLayer{position:absolute;inset:0;cursor:crosshair;display:none;border:3px dashed var(--pink);border-radius:12px}
+.field{margin-bottom:14px}
+.field label{display:block;color:var(--dim);font-size:13px;margin-bottom:4px}
+.copybox{display:flex;gap:8px;align-items:flex-start}
+.copybox .txt{flex:1;background:#14141b;border:1px solid var(--line);border-radius:10px;padding:10px;white-space:pre-wrap;min-height:44px}
+.grade{display:flex;gap:6px;flex-wrap:wrap}
+.grade button{width:46px;height:46px;font-size:18px;font-weight:700;border-radius:10px;border:1px solid var(--line);background:#272733;color:var(--text);cursor:pointer}
+.grade button.on{background:var(--pink);border-color:var(--pink)}
+textarea,input[type=text],select{width:100%;background:#14141b;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:10px;font:inherit}
+textarea{min-height:90px;resize:vertical}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.toggle{padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:#272733;color:var(--text);cursor:pointer;font-size:15px}
+.toggle.on{background:#14532d;border-color:#22c55e;color:#bbf7d0}
+details{margin-top:10px}summary{cursor:pointer;color:var(--dim)}
+/* settings */
+.sw{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.switch{position:relative;width:64px;height:36px;flex:none;border-radius:99px;background:#444;cursor:pointer;border:0}
+.switch::after{content:"";position:absolute;top:4px;left:4px;width:28px;height:28px;border-radius:50%;background:#fff;transition:.15s}
+.switch.on{background:var(--green)}.switch.on::after{left:32px}
+table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:15px;vertical-align:middle}
+th{color:var(--dim);font-weight:500}
+.chip{display:inline-flex;gap:6px;align-items:center;background:#2b2b38;border-radius:99px;padding:4px 6px 4px 12px;margin:3px}
+.chip button{background:none;border:0;color:#fca5a5;cursor:pointer;font-size:16px}
+.banner{background:#3b2f0b;border:1px solid var(--amber);color:#fde68a;padding:10px 14px;border-radius:10px;margin-bottom:14px;display:none}
+.ok{color:#86efac}.bad{color:#fca5a5}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#000;color:#fff;padding:12px 22px;border-radius:12px;display:none;z-index:9;font-size:16px}
+.cols3{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
+</style>
+</head>
+<body>
+<header>
+  <h1>GTA6 <span>Studio</span></h1>
+  <button class="tab on" data-tab="clip">▶ Clipping</button>
+  <button class="tab" data-tab="clips">🎬 Clips <span id="newBadge" class="badge" style="display:none"></span></button>
+  <button class="tab" data-tab="settings">⚙️ Settings</button>
+  <button class="tab" data-tab="tools">🧰 Tools</button>
+  <div id="pill">…</div>
+</header>
+<main>
+<!-- CLIPPING -->
+<section id="clip" class="on">
+  <div class="card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+    <button id="liveBtn" class="big wait">…</button>
+    <div>
+      <div id="liveText" style="font-size:20px;font-weight:600">…</div>
+      <div id="liveSub" class="dim"></div>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Streamers</h2><div id="streamers" class="scroll"></div></div>
+    <div class="card"><h2>What's happening</h2><div id="activity" class="scroll"></div></div>
+  </div>
+</section>
+
+<!-- CLIPS -->
+<section id="clips">
+  <div class="clips">
+    <div class="clist" id="clist"></div>
+    <div id="detail" class="card"><p class="dim">Pick a clip on the left.</p></div>
+  </div>
+</section>
+
+<!-- SETTINGS -->
+<section id="settings">
+  <div id="restart" class="banner">Changes to streamers or the blocklist take effect the next time you press Start. Stop and Start clipping to use them now.</div>
+  <div class="cols3">
+    <div class="card"><h2>Clip look</h2><div id="switches"></div>
+      <div class="sw"><div style="flex:1"><b>Posting mode: <span id="rmode"></span></b><div class="dim">Nothing is ever posted automatically. You post by hand from your phones. (Not changeable here.)</div></div></div>
+    </div>
+    <div class="card"><h2>Blocklist</h2><p class="dim">Streamers we never clip (for example after a takedown request).</p>
+      <div id="blocklist"></div>
+      <div class="copybox" style="margin-top:10px"><input type="text" id="blockName" placeholder="Streamer name"><button class="btn" onclick="block()">Block</button></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px"><h2>Streamers</h2>
+    <p class="dim">“Watch” on = the app watches them when clipping runs. “Record all the time” keeps a recording so every moment can be clipped; “Only on chat hype” (Twitch only) grabs the video when chat goes wild.</p>
+    <table><thead><tr><th>Name</th><th>Where</th><th>Watch</th><th>How</th><th>Note</th><th></th></tr></thead><tbody id="stable"></tbody></table>
+    <h2 style="margin-top:20px">Add a streamer</h2>
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px">
+      <input type="text" id="addLink" placeholder="Paste their link, e.g. https://kick.com/n3on or youtube.com/@Jelly">
+      <input type="text" id="addName" placeholder="Name (optional)">
+      <select id="addPlat"><option value="">Platform from link</option><option>twitch</option><option>kick</option><option>youtube</option></select>
+      <select id="addTier"><option value="A">Record all the time</option><option value="B">Only on chat hype</option></select>
+      <button class="btn primary" onclick="addStreamer()">Add</button>
+    </div>
+  </div>
+</section>
+
+<!-- TOOLS -->
+<section id="tools">
+  <div class="cols3">
+    <div class="card"><h2>Health check</h2><p class="dim">Checks that everything the clipper needs is installed and running.</p>
+      <button class="btn primary" id="docBtn" onclick="doctor()">Run health check</button><div id="doc" style="margin-top:12px"></div></div>
+    <div class="card"><h2>Make clips from a video link</h2><p class="dim">Paste a YouTube, Twitch or Kick video link. The app downloads it, finds the best moments and makes clips. They appear in the Clips tab. (Not while clipping is running.)</p>
+      <div class="copybox"><input type="text" id="vodUrl" placeholder="https://www.youtube.com/watch?v=..."><button class="btn primary" id="vodBtn" onclick="vod()">Make clips</button></div>
+      <div id="vodOut" style="margin-top:12px"></div></div>
+    <div class="card"><h2>Re-making a clip</h2><p class="dim">Use “Re-make clip” on a clip in the Clips tab (for example after changing the look). Progress shows here.</p><div id="renderOut"></div></div>
+  </div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function api(url, data) {
+  const opt = data === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)};
+  try { const r = await fetch(url, opt); return await r.json(); }
+  catch (e) { return {ok: false, error: "The app's background part is not answering. Close and reopen GTA6 Studio."}; }
+}
+function toast(msg, ms = 2200) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", ms); }
+function fail(r) { if (!r.ok) toast("⚠️ " + (r.error || "Something went wrong"), 4500); return !r.ok; }
+
+let tab = "clip";
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => show(b.dataset.tab));
+function show(t) {
+  tab = t;
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("on", s.id === t));
+  if (t === "clips") { $("#newBadge").style.display = "none"; seenIds = new Set(allIds); loadClips(); }
+  if (t === "settings") loadSettings();
+  if (t === "tools") pollJobs();
+}
+
+/* ---------- clipping ---------- */
+let liveState = null;
+async function pollLive() {
+  const r = await api("/api/live");
+  if (!r.ok) { $("#pill").textContent = "⚠️ not connected"; return; }
+  liveState = r.live;
+  const L = r.live, btn = $("#liveBtn");
+  const nlive = r.streamers.filter(s => s.kind === "live").length;
+  if (L.stopping) { btn.className = "big wait"; btn.textContent = "Stopping…"; btn.disabled = true;
+    $("#liveText").textContent = "Stopping clipping…"; $("#liveSub").textContent = "Finishing up, this can take up to 30 seconds."; }
+  else if (L.running) { btn.className = "big stop"; btn.textContent = "■  Stop clipping"; btn.disabled = false;
+    $("#liveText").textContent = "Clipping is ON";
+    const since = L.started ? "since " + new Date(L.started * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) : "";
+    $("#liveSub").textContent = [since, L.outside ? "(started from Terminal)" : "", nlive + " streamer(s) live right now", "Mac stays awake"].filter(Boolean).join(" · "); }
+  else { btn.className = "big go"; btn.textContent = "▶  Start clipping"; btn.disabled = false;
+    $("#liveText").textContent = "Clipping is OFF";
+    $("#liveSub").textContent = L.exit !== null && L.exit !== undefined && L.exit !== 0 && L.exit !== -2 && L.exit !== 130 ? "The last run stopped with a problem (see What's happening)." : "Press Start to watch your streamers and make clips."; }
+  $("#pill").textContent = L.running ? (L.stopping ? "⏳ stopping" : "🔴 clipping ON") : "⚪ clipping off";
+  $("#streamers").innerHTML = r.streamers.map(s => `<div class="row"><span class="dot ${s.kind}"></span><b style="flex:1">${esc(s.name)} <span class="dim" style="font-weight:400">· ${esc(s.platform)}</span></b><span class="dim">${esc(s.status)}</span></div>`).join("") || '<p class="dim">No streamers yet. Add them in Settings.</p>';
+  $("#activity").innerHTML = r.activity.map(a => `<div class="act ${a.kind}">${esc(a.text)}</div>`).join("") || '<p class="dim">Nothing yet.</p>';
+}
+$("#liveBtn").onclick = async () => {
+  if (!liveState) return;
+  const b = $("#liveBtn"); b.disabled = true;
+  const r = await api(liveState.running ? "/api/live/stop" : "/api/live/start", {});
+  if (!fail(r)) toast(liveState.running ? "Stopping clipping…" : "Clipping started!");
+  setTimeout(pollLive, 800);
+};
+
+/* ---------- clips ---------- */
+let clipsCache = [], selId = null, allIds = [], seenIds = null;
+async function loadClips() {
+  const r = await api("/api/clips"); if (!r.ok) return;
+  clipsCache = r.clips; allIds = r.clips.map(c => c.id);
+  if (seenIds === null) seenIds = new Set(allIds);
+  const fresh = allIds.filter(i => !seenIds.has(i)).length;
+  if (tab !== "clips" && fresh) { const b = $("#newBadge"); b.textContent = fresh; b.style.display = "inline"; }
+  if (tab === "clips") seenIds = new Set(allIds);
+  const now = Date.now() / 1000;
+  $("#clist").innerHTML = r.clips.map(c => `<div class="citem ${c.id === selId ? "sel" : ""}" onclick="openClip(${c.id})">
+    <b>${esc(c.title || c.name)}</b><span class="dim" style="font-size:13px">${esc(c.streamer)} · ${new Date(c.mtime * 1000).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"})}</span>
+    <div class="tags">${now - c.mtime < 1800 ? '<span class="tag new">NEW</span>' : ""}${c.score ? `<span class="tag">AI ${c.score}/10</span>` : ""}${c.grade ? `<span class="tag grade">You ${c.grade}/10</span>` : ""}${c.posted.map(p => `<span class="tag posted">✓ ${p}</span>`).join("")}</div></div>`).join("") || '<p class="dim">No clips yet. Start clipping, or make clips from a link in Tools.</p>';
+}
+const PL = {youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram"};
+let cur = null, markMode = false, markKind = "circle";
+async function openClip(id) {
+  selId = id; document.querySelectorAll(".citem").forEach(e => e.classList.remove("sel"));
+  const r = await api("/api/clips/" + id); if (fail(r)) return;
+  const c = cur = r.clip; markMode = false;
+  loadClips();
+  $("#detail").innerHTML = `<div class="detail">
+   <div class="vwrap"><video id="vid" src="/video/${c.id}?t=${Date.now()}" controls playsinline preload="metadata"></video><div id="markLayer"></div></div>
+   <div>
+    <div class="field"><label>Title</label><div class="copybox"><div class="txt">${esc(c.title)}</div><button class="btn primary" onclick="copy('title')">Copy</button></div></div>
+    <div class="field"><label>Description</label><div class="copybox"><div class="txt">${esc(c.description)}</div><button class="btn primary" onclick="copy('description')">Copy</button></div></div>
+    <div class="field"><label>Hashtags</label><div class="copybox"><div class="txt">${esc(c.hashtags)}</div><button class="btn primary" onclick="copy('hashtags')">Copy</button></div></div>
+    <div class="btns" style="margin-bottom:16px"><button class="btn" onclick="finder()">📁 Show in Finder</button><button class="btn" onclick="rerender()">🔄 Re-make clip</button></div>
+    <div class="field"><label>I posted it on</label><div class="btns">${Object.keys(PL).map(p => `<button class="toggle ${c.posted.includes(p) ? "on" : ""}" onclick="posted('${p}',this)">${c.posted.includes(p) ? "✓ " : ""}${PL[p]}</button>`).join("")}</div></div>
+    <div class="field"><label>My grade (1 = bad, 10 = great)</label><div class="grade">${[...Array(10)].map((_, i) => `<button class="${c.grade === i + 1 ? "on" : ""}" onclick="grade(${i + 1})">${i + 1}</button>`).join("")}</div></div>
+    <div class="field"><label>What I liked / didn't like</label><textarea id="notes" placeholder="e.g. great hook, but the ending drags; sound effect too quiet">${esc(c.notes)}</textarea>
+      <div class="btns" style="margin-top:6px"><button class="btn" onclick="saveNotes()">Save note</button><span class="dim" id="notesSaved"></span></div></div>
+    <p class="dim" style="font-size:13px">${esc(c.streamer)} on ${esc(c.platform)} · AI score ${c.score ?? "?"}/10${c.reason ? " · " + esc(c.reason) : ""}<br><a href="#" onclick="api('/api/copy',{text:${esc(JSON.stringify(c.url))}}).then(()=>toast('Source link copied'));return false" style="color:var(--dim)">Copy source link</a>${c.yt_views != null ? " · YouTube views: " + c.yt_views : ""}</p>
+    <details><summary>Place a circle or arrow by hand</summary>
+      <p class="dim">${c.marks_on ? "" : "⚠️ Circles and arrows are switched OFF in Settings, so a mark you place here only shows after you switch them on and re-make the clip. "}Pause the video where the mark should appear, choose circle or arrow, press “Click to place”, then click the spot on the video.</p>
+      <div class="btns"><button class="toggle on" id="mkC" onclick="setKind('circle')">⭕ Circle</button><button class="toggle" id="mkA" onclick="setKind('arrow')">➡️ Arrow</button>
+      <button class="btn primary" onclick="startMark()">Click to place</button><button class="btn" onclick="marks({action:'none'})">No marks on this clip</button><button class="btn danger" onclick="marks({action:'clear'})">Forget my marks</button></div>
+      <p class="dim" id="markInfo">${markText(c.marks)}</p>
+    </details>
+   </div></div>`;
+  $("#markLayer").onclick = placeMark;
+  $("#notes").addEventListener("blur", () => saveNotes(true));
+}
+function markText(m) { return m == null ? "No hand-placed marks." : m.length === 0 ? "Set to: no marks on this clip." : "Hand-placed: " + m.map(x => `${x.kind} at ${x.t}s`).join(", ") + ". Re-make the clip to see them."; }
+async function copy(field) { const r = await api("/api/copy", {text: cur[field]}); if (!fail(r)) toast("Copied " + field + "!"); }
+async function finder() { fail(await api(`/api/clips/${cur.id}/finder`, {})); }
+async function rerender() { const r = await api(`/api/clips/${cur.id}/rerender`, {}); if (!fail(r)) toast("Re-making the clip. It takes a minute or two; progress is in Tools.", 4000); }
+async function posted(p, el) { const on = !cur.posted.includes(p); const r = await api(`/api/clips/${cur.id}/posted`, {platform: p, on}); if (fail(r)) return;
+  cur.posted = on ? [...cur.posted, p] : cur.posted.filter(x => x !== p); el.classList.toggle("on", on); el.textContent = (on ? "✓ " : "") + PL[p]; loadClips(); }
+async function grade(n) { const r = await api(`/api/clips/${cur.id}/grade`, {score: n}); if (fail(r)) return; cur.grade = n;
+  document.querySelectorAll(".grade button").forEach((b, i) => b.classList.toggle("on", i + 1 === n)); toast("Graded " + n + "/10"); loadClips(); }
+async function saveNotes(quiet) { const v = $("#notes").value; if (quiet && v === (cur.notes || "")) return;
+  const r = await api(`/api/clips/${cur.id}/grade`, {notes: v}); if (fail(r)) return; cur.notes = v; $("#notesSaved").textContent = "Saved ✓"; }
+function setKind(k) { markKind = k; $("#mkC").classList.toggle("on", k === "circle"); $("#mkA").classList.toggle("on", k === "arrow"); }
+function startMark() { const v = $("#vid"); v.pause(); markMode = true; $("#markLayer").style.display = "block"; toast("Now click the spot on the video", 3000); }
+async function placeMark(e) {
+  const v = $("#vid"), r = v.getBoundingClientRect();
+  const s = Math.min(r.width / v.videoWidth, r.height / v.videoHeight), w = v.videoWidth * s, h = v.videoHeight * s;
+  const x = (e.clientX - r.left - (r.width - w) / 2) / w, y = (e.clientY - r.top - (r.height - h) / 2) / h;
+  $("#markLayer").style.display = "none"; markMode = false;
+  if (x < 0 || x > 1 || y < 0 || y > 1) { toast("That was outside the video, try again"); return; }
+  await marks({action: "add", t: v.currentTime, x, y, kind: markKind});
+}
+async function marks(d) { const r = await api(`/api/clips/${cur.id}/marks`, d); if (fail(r)) return; cur.marks = r.marks; $("#markInfo").textContent = markText(r.marks);
+  if (confirm("Mark saved. Re-make the clip now so it shows?")) rerender(); }
+
+/* ---------- settings ---------- */
+async function loadSettings() {
+  const r = await api("/api/settings"); if (fail(r)) return;
+  $("#rmode").textContent = r.review_mode === "manual" ? "manual (by hand)" : r.review_mode;
+  $("#switches").innerHTML = r.switches.map(s => `<div class="sw"><button class="switch ${s.on ? "on" : ""}" onclick="sw('${s.key}',${!s.on})" aria-label="${esc(s.label)}"></button><div><b>${esc(s.label)}: ${s.on ? "ON" : "OFF"}</b><div class="dim">${esc(s.help)}</div></div></div>`).join("") +
+    '<p class="dim">Look changes apply to new clips. Use “Re-make clip” for old ones.</p>';
+  $("#blocklist").innerHTML = r.blocklist.map(n => `<span class="chip">${esc(n)}<button onclick='unblock(${esc(JSON.stringify(n))})' title="Remove">✕</button></span>`).join("") || '<span class="dim">Nobody is blocked.</span>';
+  $("#stable").innerHTML = r.streamers.map(s => { const n = esc(JSON.stringify(s.name)); return `<tr><td><b>${esc(s.name)}</b><div class="dim" style="font-size:13px">${esc(s.channel || "")}</div></td><td>${esc(s.platform)}</td>
+    <td><button class="switch ${s.live ? "on" : ""}" onclick='setS(${n},{live:${!s.live}})'></button></td>
+    <td>${s.platform === "twitch" ? `<select onchange='setS(${n},{tier:this.value})'><option value="A" ${s.tier === "A" ? "selected" : ""}>Record all the time</option><option value="B" ${s.tier === "B" ? "selected" : ""}>Only on chat hype</option></select>` : '<span class="dim">Record all the time</span>'}</td>
+    <td class="dim" style="font-size:13px;max-width:380px">${esc(s.note)}</td>
+    <td><button class="btn danger" onclick='rmS(${n})'>Remove</button></td></tr>`; }).join("");
+}
+function restartNote(r) { if (r.restart) $("#restart").style.display = "block"; }
+async function sw(key, on) { const r = await api("/api/settings/switch", {key, on}); if (!fail(r)) { toast("Saved"); loadSettings(); } }
+async function setS(name, d) { const r = await api("/api/settings/streamer", {action: "set", name, ...d}); if (!fail(r)) { restartNote(r); loadSettings(); } }
+async function rmS(name) { if (!confirm("Remove " + name + " from the list?")) return; const r = await api("/api/settings/streamer", {action: "remove", name}); if (!fail(r)) { restartNote(r); loadSettings(); } }
+async function addStreamer() { const r = await api("/api/settings/streamer", {action: "add", link: $("#addLink").value, name: $("#addName").value, platform: $("#addPlat").value, tier: $("#addTier").value});
+  if (!fail(r)) { toast("Added"); $("#addLink").value = $("#addName").value = ""; restartNote(r); loadSettings(); } }
+async function block() { const r = await api("/api/settings/blocklist", {name: $("#blockName").value, on: true}); if (!fail(r)) { $("#blockName").value = ""; restartNote(r); loadSettings(); } }
+async function unblock(name) { const r = await api("/api/settings/blocklist", {name, on: false}); if (!fail(r)) { restartNote(r); loadSettings(); } }
+
+/* ---------- tools ---------- */
+async function doctor() { const b = $("#docBtn"); b.disabled = true; b.textContent = "Checking…"; $("#doc").innerHTML = "";
+  const r = await api("/api/doctor", {}); b.disabled = false; b.textContent = "Run health check"; if (fail(r)) return;
+  $("#doc").innerHTML = `<p style="font-weight:700" class="${r.all_ok ? "ok" : "bad"}">${r.all_ok ? "✅ Everything is ready." : "⚠️ Something needs fixing:"}</p>` + r.rows.map(x => `<div class="row"><span class="${x.ok ? "ok" : "bad"}">${x.ok ? "✓" : "✗"}</span>${esc(x.text)}</div>`).join(""); }
+async function vod() { const r = await api("/api/vod", {url: $("#vodUrl").value}); if (!fail(r)) { toast("Started! This can take a while for a long video."); pollJobs(); } }
+function jobHtml(r, idle) { const j = r.job;
+  if (!j.pid) return `<p class="dim">${idle}</p>`;
+  const head = j.running ? `⏳ ${esc(j.label)}… (started ${new Date(j.started * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})})` : j.exit && j.exit !== 0 ? `⚠️ ${esc(j.label)}: stopped with a problem` : `✅ ${esc(j.label)}: done`;
+  return `<p><b>${head}</b></p>` + r.lines.map(l => `<div class="act">${esc(l)}</div>`).join(""); }
+async function pollJobs() {
+  const [v, re] = await Promise.all([api("/api/jobs/vod"), api("/api/jobs/render")]);
+  if (v.ok) { $("#vodOut").innerHTML = jobHtml(v, ""); $("#vodBtn").disabled = v.job.running; }
+  if (re.ok) $("#renderOut").innerHTML = jobHtml(re, "Nothing re-made yet.");
+}
+
+pollLive(); loadClips();
+setInterval(pollLive, 3000);
+setInterval(loadClips, 10000);
+setInterval(() => { if (tab === "tools") pollJobs(); }, 3000);
+</script>
+</body>
+</html>

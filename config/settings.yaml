@@ -1,5 +1,11 @@
 review:
   mode: manual        # manual = nothing posts without approval
+  # Control app (studio review): suggested description for posting by hand. {title} {streamer} {platform}
+  # {hashtags} are filled in; swear words are masked like the captions.
+  description_template: "{title} 😱\n\nClip from {streamer} on {platform}. Follow for more GTA 6 clips!\n\n{hashtags}"
+  default_hashtags: "#gta6 #gta #gaming #shorts"
+  always_hashtags: "#shorts"   # added to every clip's hashtags if missing
+  port: 8642                   # the app's local page: http://127.0.0.1:8642 (next free port if taken)
 ingest:
   max_height: 1080   # source quality; platforms favour 1080p
 judge:

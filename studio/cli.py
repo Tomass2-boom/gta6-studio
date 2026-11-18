@@ -196,8 +196,17 @@ def mark(clip: str = typer.Argument(..., help="Clip name, e.g. 1_1563 (the file 
 
 
 @app.command()
-def review():
-    typer.echo("Review page arrives in S4.")
+def review(browser: bool = typer.Option(False, "--browser", help="Open in the web browser instead of an app window")):
+    """Open the control app (start/stop clipping, clips, grades, settings)."""
+    from .review.window import main
+    main(browser)
+
+
+@app.command("make-app")
+def make_app(dest: str = typer.Option(str(Path.home() / "Applications"), help="Folder to put GTA6 Studio.app in")):
+    """Make the double-click 'GTA6 Studio' Mac app (opens the control app, no Terminal)."""
+    from .review.macapp import install
+    typer.echo(f"Made {install(Path(dest))}")
 
 
 @app.command()
