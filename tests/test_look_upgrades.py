@@ -226,3 +226,18 @@ def test_layout_a_game_crop_avoids_a_side_docked_cam():
     _, geo = L.build("A", st, 1920, 1080, (1280, 560, 640, 520))  # mirrored: cam bottom-right
     gx, _, gw, _ = geo["game"][0]
     assert gx + gw <= 1280 and gx >= 0
+
+
+def test_cutout_cam_found_from_a_low_corner_face(monkeypatch):
+    """Borderless cam: a big steady face low in a corner becomes the cam box; a centred face does not."""
+    from studio.render import vertical as V, facetrack as T
+    st = load("style")
+    low_left = [(200, 650, 170, 170)] * 30
+    monkeypatch.setattr(T, "faces_over_time", lambda *a, **k: (None, low_left))
+    x, y, w, h = V._cutout_box(st, {"path": "x"}, 0, 30, 1920, 1080)
+    assert x == 0 and w >= 500 and y <= 650 and y + h >= 820
+    centred = [(880, 600, 170, 170)] * 30  # full-screen IRL camera
+    monkeypatch.setattr(T, "faces_over_time", lambda *a, **k: (None, centred))
+    assert V._cutout_box(st, {"path": "x"}, 0, 30, 1920, 1080) is None
+    monkeypatch.setattr(T, "faces_over_time", lambda *a, **k: (None, [None] * 30))
+    assert V._cutout_box(st, {"path": "x"}, 0, 30, 1920, 1080) is None

@@ -24,6 +24,26 @@ def _mix_pick(style: dict, key: str) -> str | None:
     return None
 
 
+def _cutout_box(style: dict, src: dict, a: float, b: float, w: int, h: int):
+    """A borderless webcam (green-screen cut-out over the game, e.g. IShowSpeed) has no edge to detect.
+    If a big face sits steadily in a lower corner, box it as the cam so layout A shows face AND action
+    (instead of layout B's crop chasing the face off the gameplay). None if it does not look like that."""
+    from . import facetrack as T
+    _, best = T.faces_over_time(src["path"], a, min(b, a + 30), w, h, 1.0)
+    faces = [f for f in best if f and f[2] >= (style.get("face_track") or {}).get("min_face_w", 0.06) * w]
+    if not best or len(faces) / len(best) < 0.5:
+        return None
+    fx, fy, fw, fh = (float(np.median([f[i] for f in faces])) for i in range(4))
+    cx, cy = fx + fw / 2, fy + fh / 2
+    if cy < 0.5 * h or 0.35 * w < cx < 0.65 * w:  # not low, or centred: a full-screen camera, not a cut-out
+        return None
+    bw = min(w, 3.5 * fw)  # the cut-out (head + shoulders) is ~3.5 face widths wide
+    bh = min(h, bw / 1.4)
+    x0 = min(max(0.0, cx - bw / 2), w - bw)
+    y0 = min(max(0.0, cy - 0.45 * bh), h - bh)
+    return int(x0) // 2 * 2, int(y0) // 2 * 2, int(bw) // 2 * 2, int(bh) // 2 * 2
+
+
 def _b_or_c(style: dict, src: dict, a: float, b: float, w: int, h: int, why: str):
     """Auto fallback B, unless the source has a big black band (multi-POV overlays): then C shows it whole."""
     lim = style.get("layout_b", {}).get("black_band_to_c")
@@ -46,6 +66,10 @@ def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, fo
     how = "from streamers.yaml" if cam else None
     if want in ("AUTO", "A") and not cam:  # no hand-entered box: stored or auto-detected one
         cam, how = FC.auto_box(src["streamer"], src["path"], a, b, w, h)
+        if not cam:
+            cut = _cutout_box(style, src, a, b, w, h)
+            if cut:
+                cam, how = cut, "face cut-out in a lower corner (no border)"
     if want in ("AUTO", "A"):
         if not cam:
             if want == "A":
@@ -53,7 +77,7 @@ def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, fo
             return _b_or_c(style, src, a, b, w, h, how)
         tl = L.cam_timeline(src["path"], a, b, cam, w, h)
         share = sum(tl) / max(1, len(tl))
-        if share < style["layout_a"]["cam_presence"] and how == "from streamers.yaml":
+        if share < style["layout_a"]["cam_presence"] and how.startswith(("from streamers.yaml", "face cut-out")):
             # Borderless cam (green-screen cut-out, e.g. IShowSpeed): no edge to find, so look for the face instead.
             from . import facetrack as T
             _, best = T.faces_over_time(src["path"], a, b, w, h, 1.0, cam)
