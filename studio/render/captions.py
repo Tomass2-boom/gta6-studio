@@ -138,6 +138,34 @@ def _hook_title(text: str, hooks: list[str], tb: dict, ff: str, inner: float):
     return lines, [i < len(hl) for i in range(len(lines))], widest, size, (hs if len(hl1) == 1 else size)
 
 
+def _banner(title: str, layout: str, bn: dict, cap: dict, head: str, W: int, H: int, duration: float):
+    """Launch hook ('GTA 6 IS ALREADY OUT') over the top of layout A/B clips, which have no title box.
+    Only when the title starts with a launch hook. Pops in, holds show_s (0 = whole clip), pops out."""
+    launch = load("settings")["judge"].get("launch") or {}
+    hook, _ = split_hook(title.upper(), launch.get("hooks", []) + [launch.get("first_look_hook") or ""])
+    if not hook:
+        return head, []
+    size, inner, ff = bn["font_size"], W - 2 * bn["margin_x"], cap["font_file"]
+    lines = wrap(hook, ff, size, inner)[0]
+    if len(lines) > 1:   # two big balanced lines ("GTA 6 IS / ALREADY OUT") beat one small one
+        words = hook.split()
+        cut = min(range(1, len(words)), key=lambda i: abs(len(" ".join(words[:i])) - len(" ".join(words[i:]))))
+        lines = [" ".join(words[:cut]), " ".join(words[cut:])]
+        while max(wrap(ln, ff, size, 1e9)[1] for ln in lines) > inner and size > bn["font_size"] * 0.6:
+            size = int(size * 0.95)
+    hook = "\\N".join(lines)
+    col = ass_color(launch.get("hook_color", "FFE600"))
+    head += (f"Style: Hook,{cap['font']},{size},{col},{col},{ass_color('000000')},{ass_color('000000', 90)},"
+             f"0,0,0,0,100,100,0,0,1,{bn['outline']},{bn['shadow']},5,0,0,0,1\n")
+    end = min(duration, bn["show_s"]) if bn.get("show_s") else duration
+    y = bn["y_a"] if layout == "A" else bn["y_b"]
+    p0, ms = bn["pop_from"], bn["pop_ms"]
+    out = (f"\\t({(end * 1000 - ms):.0f},{end * 1000:.0f},\\fscx{p0}\\fscy{p0}\\alpha&HFF&)"
+           if end < duration else "")
+    return head, [f"Dialogue: 3,{ts(0)},{ts(end)},Hook,,0,0,0,,{{\\pos({W // 2},{y * H:.0f})"
+                  f"\\fscx{p0}\\fscy{p0}\\t(0,{ms},\\fscx100\\fscy100){out}}}{hook}"]
+
+
 def build_ass(words: list[dict], keywords: list[str], style: dict, layout: str, geo: dict,
               duration: float, title: str | None = None) -> str:
     out, cap = style["output"], style["captions"]
@@ -204,6 +232,10 @@ Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,
                           f"{_rounded_rect(bw, bh, tb['radius'])}")
             events.append(f"Dialogue: 1,{ts(0)},{ts(duration)},Title,,0,0,0,,"
                           f"{{\\pos({W // 2},{by + bh / 2:.0f})\\q2}}" + "\\N".join(lines))
+    bn = style.get("launch_banner") or {}
+    if layout in ("A", "B") and title and bn.get("enabled"):
+        head, ev = _banner(title, layout, bn, cap, head, W, H, duration)
+        events += ev
     never = {_norm(x) for x in cap.get("never_highlight", [])}
     kw = {_norm(p) for k in keywords or [] for p in str(k).split() if _norm(p)} - never
     colors, n_hl = cap["highlight_colors"], 0

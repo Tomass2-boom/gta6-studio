@@ -70,6 +70,20 @@ layout_c:
     gap: 36               # gap between box and picture
     max_lines: 3
 
+# Launch hook banner on layout A/B clips (they have no title box): "GTA 6 IS ALREADY OUT" over the top.
+# Only shows when the title starts with a launch hook (settings.yaml judge.launch). Preview 2026-11-18.
+launch_banner:
+  enabled: false
+  show_s: 3.5         # seconds on screen from the start; 0 = the whole clip
+  y_a: 0.12           # centre, share of height (layout A: over the top of the facecam)
+  y_b: 0.15           # layout B
+  font_size: 118      # too wide for one line -> two balanced lines at this size
+  margin_x: 50
+  outline: 12
+  shadow: 5
+  pop_from: 70
+  pop_ms: 140
+
 captions:
   font: Nunito Black      # family name inside the font file
   font_file: Nunito-Black.ttf   # in assets/fonts/
