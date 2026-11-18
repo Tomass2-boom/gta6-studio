@@ -198,6 +198,18 @@ def mark(clip: str = typer.Argument(..., help="Clip name, e.g. 1_1563 (the file 
 
 
 @app.command()
+def backfill(since: str = typer.Option("2026-11-18T11:00:00Z", help="Only moments after this (UTC)"),
+             until: str = typer.Option(None, help="Only moments before this (UTC); default now"),
+             channel: list[str] = typer.Option(None, help="Only these channels (repeatable)"),
+             top: int = typer.Option(None, help="Only the N strongest moments"),
+             dry_run: bool = typer.Option(False, "--dry-run", help="List the moments, fetch nothing"),
+             model: str = typer.Option(None, help="Override judge model")):
+    """Clips from moments logged as chat only: fetch just those stretches from the VODs, strongest first."""
+    from .backfill import run
+    run(since, until, [c.lower() for c in channel] if channel else None, top, dry_run, model, log("backfill"))
+
+
+@app.command()
 def review(browser: bool = typer.Option(False, "--browser", help="Open in the web browser instead of an app window")):
     """Open the control app (start/stop clipping, clips, grades, settings)."""
     from .review.window import main
