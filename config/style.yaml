@@ -24,6 +24,17 @@ grade:
   gamma: 0.98
   sharpen: 0.45           # unsharp amount after upscaling (0 = off; >0.8 starts to look crunchy)
 
+# Usability gate before every render (user 2026-11-18: "make sure they're at least usable so I can post").
+# Fixes what it can (smaller cam panel, or full-game layout C); refuses a clip only when nothing works.
+checks:
+  enabled: true
+  min_source_h: 700          # below 720p the clip looks blurry: refuse
+  face_in_cam: 0.5           # the cam box must show a face in this share of samples, else no cam (C)
+  max_cam_upscale: 3.0       # shrink the cam panel until the cam is blown up at most this much...
+  min_cam_height: 0.30       # ...but not below this share of the height (smaller = more zoomed game)
+  max_cam_upscale_hard: 4.0  # still over this at the smallest panel: cam too tiny/blurry, use C
+  min_game_width: 0.42       # the game crop must keep this share of the game's width (B keeps 32%: becomes C)
+
 layout_mix:
   C: 0.2
 

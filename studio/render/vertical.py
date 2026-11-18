@@ -187,6 +187,13 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
     if lay == "A" and ("no cam border" in note or "cut-out" in note) and cut.get("enabled"):
         # Borderless cut-out cam (IShowSpeed style): smaller face panel, more room for the action.
         style = {**style, "layout_a": {**style["layout_a"], "cam_height": cut["cam_height"], "_cutout": True}}
+    if not force_layout:
+        from .check import fit
+        lay, cam, style, rep = fit(style, src["path"], a, b, w, h, lay, cam, note)
+        if rep:
+            info["checks"] = rep
+            if lay != "A":
+                off = []
     clip_words = [{**x, "start": x["start"] - a, "end": x["end"] - a} for x in words
                   if x["start"] >= a - 0.05 and x["end"] <= b + 0.05]
     ffmpeg = L.tools()[0]
@@ -223,7 +230,7 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
         if r.returncode:
             raise RuntimeError(f"ffmpeg failed: {r.stderr[-800:]}")
         os.replace(tmp, path)
-    extra = {k: info[k] for k in ("sfx", "marks", "face_track") if k in info}
+    extra = {k: info[k] for k in ("checks", "sfx", "marks", "face_track") if k in info}
     return str(path), lay, note + (f"; extras {extra}" if extra else "")
 
 
