@@ -42,3 +42,12 @@ def test_hook_title_rotates_and_first_look():
 def test_split_hook():
     assert split_hook("GTA 6 IS ALREADY OUT: I'M FLYING", LC["hooks"]) == ("GTA 6 IS ALREADY OUT", "I'M FLYING")
     assert split_hook("NPC FIGHT", LC["hooks"]) == (None, "NPC FIGHT")
+
+
+def test_on_video_hook_only_for_lower_rated(monkeypatch):
+    _cfg(monkeypatch)
+    LC["on_video_max_score"] = 6
+    t = "GTA 6 JUST DROPPED: Dad Grabs A Stranger"
+    assert llm.video_title(t, 6) == t          # lower rated: banner / hook line on the video
+    assert llm.video_title(t, 8) == "Dad Grabs A Stranger"   # best clips stay clean
+    assert llm.video_title("Plain Title", 9) == "Plain Title"

@@ -73,8 +73,15 @@ layout_c:
 # Launch hook banner on layout A/B clips (they have no title box): "GTA 6 IS ALREADY OUT" over the top.
 # Only shows when the title starts with a launch hook (settings.yaml judge.launch). Preview 2026-11-18.
 launch_banner:
-  enabled: false
-  show_s: 3.5         # seconds on screen from the start; 0 = the whole clip
+  enabled: true       # user approved the 3.5 s version 2026-11-18; only on lower-rated clips (settings judge.launch.on_video_max_score)
+  show_s: 3.5         # seconds on screen from the start (never the whole clip)
+  # Two-tone lines (line 1, line 2), one palette per clip picked from the title so the feed varies. Mostly white + one accent.
+  palettes:
+    - [FFFFFF, FFE600]   # white / yellow
+    - [FFE600, FFFFFF]   # yellow / white
+    - [FFFFFF, 3CFF3C]   # white / green
+    - [FFFFFF, FF4040]   # white / red
+    - [FFFFFF, 40C8FF]   # white / sky blue
   y_a: 0.12           # centre, share of height (layout A: over the top of the facecam)
   y_b: 0.15           # layout B
   font_size: 118      # too wide for one line -> two balanced lines at this size

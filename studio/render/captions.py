@@ -140,11 +140,15 @@ def _hook_title(text: str, hooks: list[str], tb: dict, ff: str, inner: float):
 
 def _banner(title: str, layout: str, bn: dict, cap: dict, head: str, W: int, H: int, duration: float):
     """Launch hook ('GTA 6 IS ALREADY OUT') over the top of layout A/B clips, which have no title box.
-    Only when the title starts with a launch hook. Pops in, holds show_s (0 = whole clip), pops out."""
+    Only when the title starts with a launch hook. Pops in, holds show_s, pops out.
+    Two-tone: line 1 / line 2 in one palette picked per clip."""
     launch = load("settings")["judge"].get("launch") or {}
     hook, _ = split_hook(title.upper(), launch.get("hooks", []) + [launch.get("first_look_hook") or ""])
     if not hook:
         return head, []
+    import zlib
+    pals = bn.get("palettes") or [[launch.get("hook_color", "FFE600")]]
+    pal = pals[zlib.crc32(title.encode()) % len(pals)]   # varies per clip, same clip = same colours on re-render
     size, inner, ff = bn["font_size"], W - 2 * bn["margin_x"], cap["font_file"]
     lines = wrap(hook, ff, size, inner)[0]
     if len(lines) > 1:   # two big balanced lines ("GTA 6 IS / ALREADY OUT") beat one small one
@@ -153,11 +157,17 @@ def _banner(title: str, layout: str, bn: dict, cap: dict, head: str, W: int, H: 
         lines = [" ".join(words[:cut]), " ".join(words[cut:])]
         while max(wrap(ln, ff, size, 1e9)[1] for ln in lines) > inner and size > bn["font_size"] * 0.6:
             size = int(size * 0.95)
-    hook = "\\N".join(lines)
-    col = ass_color(launch.get("hook_color", "FFE600"))
+    if len(lines) == 1 and len(hook.split()) > 2:   # one line: "GTA 6" in one colour, the rest in the other
+        w = hook.split()
+        lines = [" ".join(w[:2]), " ".join(w[2:])]
+        sep = " "
+    else:
+        sep = "\\N"
+    hook = sep.join(f"{{\\1c{ass_color(pal[i % len(pal)])}}}{ln}" for i, ln in enumerate(lines))
+    col = ass_color(pal[0])
     head += (f"Style: Hook,{cap['font']},{size},{col},{col},{ass_color('000000')},{ass_color('000000', 90)},"
              f"0,0,0,0,100,100,0,0,1,{bn['outline']},{bn['shadow']},5,0,0,0,1\n")
-    end = min(duration, bn["show_s"]) if bn.get("show_s") else duration
+    end = min(duration, bn.get("show_s") or 3.5)   # never the whole clip (user 2026-11-18)
     y = bn["y_a"] if layout == "A" else bn["y_b"]
     p0, ms = bn["pop_from"], bn["pop_ms"]
     out = (f"\\t({(end * 1000 - ms):.0f},{end * 1000:.0f},\\fscx{p0}\\fscy{p0}\\alpha&HFF&)"

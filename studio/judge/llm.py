@@ -37,6 +37,18 @@ def hook_title(title: str | None, launch: dict | None, first_look: bool, seed: i
     return f"{hook}: {title.strip()}"
 
 
+def video_title(title: str | None, score) -> str | None:
+    """Title as drawn ON the video. The launch hook (layout C hook line, layout A/B banner) only goes on the
+    lower-rated clips (score <= launch.on_video_max_score, user 2026-11-18): the best clips stay clean.
+    The Shorts title/description keep the hook on every clip."""
+    lc = load("settings")["judge"].get("launch") or {}
+    if not title or score is None or float(score) <= lc.get("on_video_max_score", 6):
+        return title
+    from ..render.captions import split_hook
+    hook, rest = split_hook(title, lc.get("hooks", []) + [lc.get("first_look_hook") or ""])
+    return rest if hook and rest else title
+
+
 GAME_RE = re.compile(r"\bgta\s*-?\s*(6|six|vi)\b", re.I)
 
 

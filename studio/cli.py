@@ -135,7 +135,9 @@ def _render_one(con, mid: int, lg, force_layout: str | None = None):
     if kw is None:
         kw = pick_keywords(" ".join(w["word"] for w in words if a <= w["start"] <= b))
         db.update(con, mid, keywords=kw)
-    path, lay, note = render(src, a, b, words, kw, m["title"], f"{src['id']}_{int(a)}", force_layout)
+    from .judge.llm import video_title
+    path, lay, note = render(src, a, b, words, kw, video_title(m["title"], m["score"]), f"{src['id']}_{int(a)}",
+                             force_layout)
     db.update(con, mid, state="rendered", clip_path=path, layout=lay)
     lg.info("moment %d rendered, layout %s (%s): %s", mid, lay, note, path)
     return path
