@@ -215,3 +215,14 @@ def test_long_title_shrinks_instead_of_being_cut():
     geo = {"caption_y": 1500, "caption_y_b": 1500, "video_top": 656}
     ass = build_ass([], [], st, "C", geo, 5, "NPC Confrontation Escalates to Shirt Removal")
     assert "REMOVAL" in ass.upper()
+
+
+def test_layout_a_game_crop_avoids_a_side_docked_cam():
+    """IShowSpeed: borderless cam bottom-left. The game panel must show the action, not the face again."""
+    st = load("style")
+    _, geo = L.build("A", st, 1920, 1080, (0, 560, 640, 520))
+    gx, _, gw, _ = geo["game"][0]
+    assert gx >= 640 and gx + gw <= 1920
+    _, geo = L.build("A", st, 1920, 1080, (1280, 560, 640, 520))  # mirrored: cam bottom-right
+    gx, _, gw, _ = geo["game"][0]
+    assert gx + gw <= 1280 and gx >= 0

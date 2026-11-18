@@ -135,6 +135,12 @@ def build(layout: str, style: dict, src_w: int, src_h: int, cam=None, track: dic
         x, y, w, h = x + 2, y + 2, w - 4, h - 4  # stay inside the cam border
         cw, chh, cx, cy = _crop_aspect(x, y, w, h, W / ch_out, 0.5, A["cam_focus_y"])
         gw, gh, gx, gy = _crop_aspect(0, 0, src_w, src_h, W / gh_out, A["gameplay_focus_x"])
+        # The face already has its own panel: slide the game crop off a side-docked cam (e.g. IShowSpeed's
+        # bottom-left cut-out), so the game panel shows the action, not half a face.
+        if cam[0] + cam[2] / 2 < src_w / 2 and cam[0] + cam[2] > gx:
+            gx = min(cam[0] + cam[2], src_w - gw) // 2 * 2
+        elif cam[0] + cam[2] / 2 >= src_w / 2 and cam[0] < gx + gw:
+            gx = max(cam[0] - gw, 0) // 2 * 2
         cx, cy = track.get("cam_xy", (cx, cy))
         g = (f"[0:v]split=2[s1][s2];[s1]{_crop('cam', track.get('cam'))}={cw}:{chh}:{cx}:{cy},scale={W}:{ch_out}:flags=lanczos,setsar=1[cam];"
              f"[s2]crop={gw}:{gh}:{gx}:{gy},scale={W}:{gh_out}:flags=lanczos,setsar=1[game];"

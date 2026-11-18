@@ -53,6 +53,13 @@ def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, fo
             return _b_or_c(style, src, a, b, w, h, how)
         tl = L.cam_timeline(src["path"], a, b, cam, w, h)
         share = sum(tl) / max(1, len(tl))
+        if share < style["layout_a"]["cam_presence"] and how == "from streamers.yaml":
+            # Borderless cam (green-screen cut-out, e.g. IShowSpeed): no edge to find, so look for the face instead.
+            from . import facetrack as T
+            _, best = T.faces_over_time(src["path"], a, b, w, h, 1.0, cam)
+            tl = [f is not None for f in best]
+            share = sum(tl) / max(1, len(tl))
+            how += ", face check (no cam border)"
         if want == "AUTO" and share < style["layout_a"]["cam_presence"]:
             return _b_or_c(style, src, a, b, w, h, f"cam seen in only {share:.0%} of the clip")
         off = L.off_ranges(tl, style["layout_a"]["switch_min_s"])
