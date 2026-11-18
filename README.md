@@ -23,3 +23,19 @@ If the app ever disappears, rebuild it with `uv run studio make-app`. The same w
 with `uv run studio review` (add `--browser` to use the web browser instead).
 
 The app's log is `data/logs/app-window.log`; clipping's output is `data/logs/<date>-app-live.log`.
+
+## Setting it up on another Mac
+
+Clone this repo and open it in Claude Code. Tell it: "Read CLAUDE.md, PLAN.md and README.md and
+get this running on my Mac." Things it will need to change on a different machine:
+
+- **Not in the repo** (make your own): `.env` with your own posting accounts/API keys, and the
+  `data/` folder (recordings, clips, database). Both are git-ignored.
+- **Tools to install:** `uv`, `ffmpeg`, `streamlink`, `yt-dlp`, `Ollama`. Run `uv run studio doctor`
+  to see what is missing.
+- **Intel Mac:** `mlx-whisper` only runs on Apple chips. Swap it for `faster-whisper` or
+  `whisper.cpp` in `studio/transcribe/` and `pyproject.toml`.
+- **Less than ~24 GB RAM:** the judge model in `config/settings.yaml` (`qwen3.8:27b`, 18 GB) is too
+  big. Use a small Ollama model (3-5 GB) instead.
+- `config/streamers.yaml` and `config/style.yaml` are the original owner's choices. Change them freely.
+- `.claude/handoffs/` holds build-session notes: useful history for Claude.

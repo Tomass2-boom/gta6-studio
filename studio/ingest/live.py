@@ -21,13 +21,13 @@ def stream_url(platform: str, channel: str) -> str:
             "youtube": f"https://youtube.com/@{channel}/live"}[platform]
 
 
-def start_recording(platform: str, channel: str, chunk_s: int) -> subprocess.Popen:
+def start_recording(platform: str, channel: str, chunk_s: int, quality: str = "best") -> subprocess.Popen:
     """Tier A. Exits when the stream ends or is offline; the caller restarts it."""
     d = RAW / channel
     d.mkdir(parents=True, exist_ok=True)
     ff = tools()[0]
     low = "--twitch-low-latency " if platform == "twitch" else ""
-    cmd = (f'streamlink -O {low}"{stream_url(platform, channel)}" best 2>/dev/null | '
+    cmd = (f'streamlink -O {low}"{stream_url(platform, channel)}" "{quality}" 2>/dev/null | '
            f'"{ff}" -v error -i - -c copy -f segment -segment_time {chunk_s} -strftime 1 '
            f'-reset_timestamps 1 "{d}/%s.ts"')
     return subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -97,7 +97,9 @@ def cut_from_recording(channel: str, t0: float, t1: float, spike_t: float, out: 
         i, j = contiguous_run([t for t, _ in cs], spike_t, chunk_s, hole_s, [chunk_len(p) for _, p in cs])
     cs = cs[i:j]
     if (len(cs) * chunk_s if hole_s is None else sum(chunk_len(p) for _, p in cs)) < min_len:
-        raise RuntimeError(f"only {len(cs) * chunk_s:.0f}s of unbroken video around the spike (ad break?)")
+        got = len(cs) * chunk_s if hole_s is None else sum(chunk_len(p) for _, p in cs)
+        raise RuntimeError(f"only {got:.0f}s of unbroken video around the spike (ad break, or the internet is too "
+                           f"slow for the recordings: lower live.quality)")
     out.parent.mkdir(parents=True, exist_ok=True)
     lst = out.with_suffix(".txt")
     lst.write_text("".join(f"file '{p}'\n" for _, p in cs))
@@ -107,13 +109,13 @@ def cut_from_recording(channel: str, t0: float, t1: float, spike_t: float, out: 
     return out, cs[0][0], duration(out)
 
 
-def fetch_rewind(platform: str, channel: str, seconds: int, out: Path, min_len: float):
+def fetch_rewind(platform: str, channel: str, seconds: int, out: Path, min_len: float, quality: str = "best"):
     """Tier B: Twitch rewind + keep recording until `seconds` of stream. Blocks ~ (seconds - rewind) s."""
     out.parent.mkdir(parents=True, exist_ok=True)
     raw = out.with_suffix(".raw.ts")
     started = time.time()
     subprocess.run(["streamlink", "--hls-live-restart", "--hls-duration", str(seconds), *(["--twitch-low-latency"] if platform == "twitch" else []),
-                    "-o", str(raw), "-f", stream_url(platform, channel), "best"],
+                    "-o", str(raw), "-f", stream_url(platform, channel), quality],
                    check=True, capture_output=True, timeout=seconds + 120)
     # remux with timestamps from zero: ffprobe on the raw .ts reports a wrong duration (measured)
     subprocess.run([tools()[0], "-v", "error", "-y", "-i", str(raw), "-c", "copy", "-avoid_negative_ts",

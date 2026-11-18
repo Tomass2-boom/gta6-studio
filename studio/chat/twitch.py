@@ -52,7 +52,7 @@ async def read(channels: list[str], on_message, log=None, save_chat=True):
                     on_message(m[0], ts, m[1], m[2])
         except Exception as e:
             if log:
-                log.warning("chat connection lost (%s: %s); retry in %ds", type(e).__name__, e, delay)
+                log.warning("Twitch chat connection lost (%s: %s); retry in %ds", type(e).__name__, e, delay)
             await asyncio.sleep(delay)
             delay = min(delay * 2, 60)
 

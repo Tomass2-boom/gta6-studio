@@ -34,6 +34,14 @@ def process(con, mid: int, src_path: str, lg, model: str | None = None) -> bool:
             if b - a < cfg["clip"]["min_len_s"]:
                 db.fail(con, mid, f"clip too short after clamping ({b - a:.0f}s)")
                 return False
+            lim = cfg["clip"].get("max_frozen_share", 0.6)
+            if lim < 1:
+                from .detect.still import frozen_share
+                fz = frozen_share(src_path, a, b)
+                if fz > lim:
+                    db.fail(con, mid, f"picture frozen for {fz:.0%} of the clip (no game on screen?)")
+                    lg.info("moment %d dropped: picture frozen %.0f%%", mid, 100 * fz)
+                    return False
             db.update(con, mid, j_start=a, j_end=b)
             _render_one(con, mid, lg)
             lg.info("moment %d kept (%s) %s", mid, j.get("score"), j.get("title"))

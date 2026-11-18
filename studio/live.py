@@ -46,7 +46,7 @@ def resolve_channels(arg: str | None, lg) -> list[dict]:
             ch = e.get("channel") or (e.get("url") or "").rstrip("/").split("/")[-1] or e["name"]
             out.append({"name": e["name"], "channel": ch.lower(), "platform": e.get("platform", "twitch"),
                         "tier": str(e.get("tier", "B")).upper(), "live": e.get("live", True),
-                        "kick_chatroom": e.get("kick_chatroom")})
+                        "kick_chatroom": e.get("kick_chatroom"), "quality": e.get("quality")})
     keep = []
     for e in out:
         if e["name"].lower() in block or e["channel"] in block:
@@ -77,6 +77,7 @@ class Live:
         self.todo: queue.Queue = queue.Queue()
         self.pool = ThreadPoolExecutor(4)
         self.recorders: dict[str, object] = {}
+        self.rewinds = threading.Semaphore(self.L.get("max_rewinds", 2))   # Tier B fetches at once (bandwidth)
 
     # ---- chat -> spikes -------------------------------------------------
     def on_message(self, channel, ts, user, text):
@@ -148,7 +149,13 @@ class Live:
                                                          first, out, L["chunk_s"], L["min_len_s"],
                                                          L.get("hole_s", {}).get(e["platform"]))
             else:
-                path, base, dur = vid.fetch_rewind(e["platform"], ch, L["tier_b_duration_s"], out, L["min_len_s"])
+                if not self.rewinds.acquire(blocking=False):   # a queued rewind would miss its moment anyway
+                    raise RuntimeError(f"skipped: {L.get('max_rewinds', 2)} rewinds already downloading (bandwidth)")
+                try:
+                    path, base, dur = vid.fetch_rewind(e["platform"], ch, L["tier_b_duration_s"], out, L["min_len_s"],
+                                                       self.quality(ch))
+                finally:
+                    self.rewinds.release()
             con.execute("UPDATE sources SET path=?, duration=? WHERE id=?", (str(path), dur, sid))
             sig["meta"]["video_from"] = base
             try:   # second signal: loud audio inside the segment (both firing = stronger moment)
@@ -186,13 +193,17 @@ class Live:
     async def supervise(self, ch):
         """Tier A: keep the recorder running; an offline channel is retried every minute."""
         while True:
-            p = vid.start_recording(self.chans[ch]["platform"], ch, self.L["chunk_s"])
+            p = vid.start_recording(self.chans[ch]["platform"], ch, self.L["chunk_s"], self.quality(ch))
             self.recorders[ch] = p
             t0 = time.time()
             while p.poll() is None:
                 await asyncio.sleep(5)
             self.lg.info("%s recorder stopped (offline?)", ch)
             await asyncio.sleep(2 if time.time() - t0 > 120 else 60)
+
+    def quality(self, ch) -> str:
+        """streamlink quality list: per-streamer `quality` in streamers.yaml, else live.quality."""
+        return str(self.chans[ch].get("quality") or self.L.get("quality", "best"))
 
     def uses_loud(self, ch) -> bool:
         mode, e = self.L.get("loud_trigger", "no_chat"), self.chans[ch]
