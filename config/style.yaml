@@ -86,7 +86,7 @@ reaction_tags: false      # *SECURITY* style tags in silent parts (not built yet
 # Sound effects on key moments, placed from the transcript words and the loudness.
 # Sounds live in assets/sfx/ (CC0, see assets/LICENCES.md and assets/sfx/sounds.yaml).
 sound_effects:
-  enabled: false
+  enabled: true   # user approved after preview2, 2026-11-18
   volume_db: 0            # master gain on all effects (on top of each kind's gain)
   max_per_clip: 4         # reaction hits (not counting intro, riser, cut whooshes)
   min_gap_s: 3            # at least this long between two reaction hits
@@ -162,7 +162,7 @@ sound_effects:
 # A local vision model finds the thing, a tracker follows it. Any doubt = no mark. Most clips get none.
 # Set by hand with `studio mark` (overrides).
 marks:
-  enabled: false
+  enabled: false  # user 2026-11-18: off. Marks must stay glued to the object (After Effects-style track); ours drifted when the camera turned. No mark beats a loose one
   hook: true
   hook_words_s: 4.0       # the hook = words said in the first this-many seconds
   cues: true
@@ -187,7 +187,7 @@ marks:
 # Face tracking: the facecam crop (layout A) follows the face inside the cam box, and clips with no
 # cam box but a big, steady face (full-screen camera) get a gameplay crop that follows the face.
 face_track:
-  enabled: false
+  enabled: true   # user approved after preview2, 2026-11-18
   sample_fps: 5
   min_face_w: 0.06        # full-screen camera: face at least this share of the frame width
   presence: 0.4           # ...seen in this share of the samples (missed ones hold the last spot)

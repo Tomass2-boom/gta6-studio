@@ -1,4 +1,4 @@
-# Handoff: GTA6 Studio — S8 part 1b DONE (look upgrades, round 2); waiting on the user's verdict
+# Handoff: GTA6 Studio — S8 look APPROVED (2026-11-18); producing clips
 
 ## Goal
 Automated GTA 6 clip production. The pipeline watches live streams and VODs, finds the best moments, and cuts vertical 1080p captioned clips for the user's own YouTube Shorts, TikTok and Instagram Reels. The aim is maximum views and being first. The NZ unlock is **Wed Nov 18, 11:00 UTC (12:00 CET, the user's time zone)**, and N3on (Kick) is the top priority. The quality bar is "good clips, good high quality ones." This session's job is the look upgrades: sound effects, circles/arrows and face tracking, all switchable in `config/style.yaml`.
@@ -97,12 +97,18 @@ Automated GTA 6 clip production. The pipeline watches live streams and VODs, fin
 - **Scripts** (scratchpad, may be gone): stage1 (vod without render), stage2 (render with all extras ON into preview2), check (sheet), evr/band (levels).
 
 ## Next steps
-1. The user listens to `data/clips/preview2/` (see LISTEN.md there) and says which switches go on (`sound_effects`, `marks`, `face_track` in style.yaml).
-2. Then the full test (Sonnet 5.5) and launch Wed 11:00 UTC with `uv run studio live`.
-3. Later: AI-voiceover commentary videos (the user's other format; parked until after clipping works).
+1. User verdict 2026-11-18: all 7 preview2 clips excellent ("high viewer potential", sound effects especially). Keep this look.
+   - In style.yaml: `sound_effects` and `face_track` are ON. `marks` is OFF.
+   - Marks drifted off the butler when the camera turned. They come back only if they stay glued to the object (After Effects-style), proven on real footage with camera pans. Without marks is fine.
+2. Batch running (log `data/logs/batch-2026-11-18.log`):
+   - the 7 approved moments (86 88 90 91 93 94 105) are re-rendered into the review queue;
+   - `studio vod` is running on Kai Cenat yxgRbH3Fl60 and IShowSpeed 6tvRv7N1E_c (their own channels).
+   - Clip 93 (racial tension title) and 86 ("Dick" in post title) need the user's call or a title edit before posting.
+3. Full test (Sonnet 5.5), then launch Wed 11:00 UTC with `uv run studio live`.
+4. Later: AI-voiceover commentary videos (parked).
 
 ## Waiting on the person
-- Verdicts on the new 5–10 clip batch, then which S8 switches to turn on.
+- Review of the new clips from the batch (approve in `studio review`).
 - Older items:
   - approval to make posting public (`review.mode` is still `manual`);
   - platform account setup (S4);

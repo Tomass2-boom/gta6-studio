@@ -28,9 +28,10 @@ def on(style, *keys):
     return st
 
 
-def test_all_extras_are_off_by_default():
+def test_approved_extras():
+    """User verdict 2026-11-18: sound effects + face tracking on; marks off until they stay glued to the object."""
     st = load("style")
-    assert not st["sound_effects"]["enabled"] and not st["marks"]["enabled"] and not st["face_track"]["enabled"]
+    assert st["sound_effects"]["enabled"] and st["face_track"]["enabled"] and not st["marks"]["enabled"]
 
 
 def test_with_extras_off_the_render_command_is_unchanged():
@@ -76,7 +77,7 @@ def test_effects_are_capped_and_spaced_and_off_does_nothing():
     ev = react(S.place([], env, 30, cfg))
     assert len(ev) == cfg["max_per_clip"]
     assert all(b["t"] - a["t"] >= cfg["min_gap_s"] for a, b in zip(ev, ev[1:]))
-    assert S.place([], env, 30, load("style")["sound_effects"]) == []
+    assert S.place([], env, 30, {**cfg, "enabled": False}) == []
 
 
 def test_fail_phrase_lands_at_its_end():
