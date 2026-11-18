@@ -14,5 +14,5 @@ def test_end_between_lines_only_gets_the_pad():
 def test_prompt_names_streamer_and_lengths_from_config():
     p = prompt("[0.0-2.0] hi", streamer="Lacy")
     assert "The streamer is Lacy." in p and "names the streamer" in p
-    assert "8-30 s is best" in p and "up to 45 s" in p
+    assert "8-30 s is best" in p and "up to 60 s" in p
     assert "streamer is" not in prompt("[0.0-2.0] hi")

@@ -23,7 +23,7 @@ If keep, cut it TIGHT, snapped to sentence boundaries:
   streamer saying what they are about to do or see, or the first words of the opinion). No warm-up before it.
 - end right after the payoff: the punchline, the reaction peak or the last words of the opinion.
   Nothing after it.
-- {len_min}-{len_max} s is best; up to {len_cap} s only when the moment needs the build-up.
+- {len_min}-{len_max} s is best. Go longer, up to {len_cap} s, ONLY for a genuinely interesting moment with a strong hook that keeps advancing (something new every few seconds, no dead stretch); otherwise keep it short.
 Reply ONLY JSON: {{"keep": bool, "score": 1-10, "start": sec, "end": sec,
 "title": "{title_hint}", "hashtags": ["#gta6", ...], "reason": "one line",
 "keywords": ["up to 8 punchy words spoken in the clip to highlight in captions, no swear words or filler"]}}"""
