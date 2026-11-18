@@ -38,7 +38,8 @@ clip:
   pre_roll_s: 20
   post_roll_s: 40
   max_len_s: 60           # hard cap. Only strong clips (good hook, something new every few seconds) go past 30 s (user 2026-11-18)
-  target_len_s: [8, 30]   # what the judge aims for: setup line to payoff, nothing after
+  target_len_s: [15, 30]  # typical/average only, NOT a target: length follows the moment, strong rising hooks run longer (user 2026-11-18)
+  min_keep_s: 10          # only rescues obvious 7-9 s cut-offs: extends through unbroken talk to whole sentences
   end_pad_s: 0.8          # after snapping the end to the end of the sentence (ratings: endings were cut off)
   max_frozen_share: 0.6   # drop a clip whose picture stands still this much of the time (capture card "No input signal", BRB screens). 1 = off
   min_score: 6

@@ -10,7 +10,7 @@ from datetime import date
 from .config import DATA
 from .chat import kick, twitch, youtube
 from .ingest.live import stream_url
-from .live import resolve_channels
+from .live import guard, resolve_channels
 
 
 def main():
@@ -23,14 +23,14 @@ def main():
     tasks = []
     tw = [e["channel"] for e in chans if e["platform"] == "twitch"]
     if tw:
-        tasks.append(twitch.read(tw, noop, lg))
+        tasks.append(guard("twitch", lambda: twitch.read(tw, noop, lg), lg))
     for e in chans:
         if e["platform"] == "youtube":
-            tasks.append(youtube.read_one(e["channel"], stream_url("youtube", e["channel"]), noop, lg))
+            tasks.append(guard(e["channel"], lambda e=e: youtube.read_one(e["channel"], stream_url("youtube", e["channel"]), noop, lg), lg))
         elif e["platform"] == "kick":
             room = e.get("kick_chatroom") or kick.lookup_chatroom(e["channel"])
             if room:
-                tasks.append(kick.read_one(e["channel"], int(room), noop, lg))
+                tasks.append(guard(e["channel"], lambda e=e, room=room: kick.read_one(e["channel"], int(room), noop, lg), lg))
             else:
                 lg.warning("%s: no Kick chatroom id, chat not logged", e["channel"])
     lg.info("chat-only logging: %s", ", ".join(f"{e['platform']}:{e['channel']}" for e in chans))

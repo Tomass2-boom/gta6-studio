@@ -19,13 +19,17 @@ def parse_line(line: str) -> list[tuple[str, str]]:
     except ValueError:
         return []
     out = []
-    for a in d.get("replayChatItemAction", {}).get("actions", []):
-        r = a.get("addChatItemAction", {}).get("item", {}).get("liveChatTextMessageRenderer")
-        if not r:
-            continue
-        runs = r.get("message", {}).get("runs", [])
-        text = "".join(x.get("text") or (x.get("emoji", {}).get("shortcuts") or [""])[0] for x in runs)
-        out.append((r.get("authorName", {}).get("simpleText", ""), text.strip()))
+    try:    # YouTube sometimes sends other shapes (strings, lists): skip those lines, never crash the run
+        acts = d.get("replayChatItemAction", {}).get("actions", [])
+        for a in acts:
+            r = a.get("addChatItemAction", {}).get("item", {}).get("liveChatTextMessageRenderer")
+            if not r:
+                continue
+            runs = r.get("message", {}).get("runs", [])
+            text = "".join(x.get("text") or (x.get("emoji", {}).get("shortcuts") or [""])[0] for x in runs)
+            out.append((r.get("authorName", {}).get("simpleText", ""), text.strip()))
+    except (AttributeError, TypeError):
+        return []
     return [m for m in out if m[1]]
 
 
@@ -47,9 +51,14 @@ async def read_one(channel: str, url: str, on_message, log=None, save_chat=True)
                 alive = p.poll() is None
                 f = next(iter(sorted(d.glob(f"yt-{channel}.live_chat.json*"))), None)   # .part, later the final file
                 if f:
-                    with open(f, "rb") as fh:
-                        fh.seek(pos)
-                        new = fh.read()
+                    try:
+                        with open(f, "rb") as fh:
+                            fh.seek(pos)
+                            new = fh.read()
+                    except OSError:   # yt-dlp renames/removes its .part files while we read (crashed chatlog 21:04)
+                        if not alive:
+                            break
+                        continue
                     pos += len(new)
                     backlog = first and bool(new)
                     first = first and not new

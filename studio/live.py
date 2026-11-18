@@ -185,9 +185,18 @@ class Live:
         con = db.connect()
         while True:
             mid, path, spike_t = self.todo.get()
-            ok = process(con, mid, path, self.lg, self.model)
-            self.lg.info("moment %d %s (%s), %.0fs after the spike", mid, "CLIP READY" if ok else "no clip",
-                         path.rsplit("/", 1)[-1].rsplit("-", 1)[0], time.time() - spike_t)
+            beat("worker", {"moment": mid, "since": time.time()})   # the watchdog restarts us if one moment hangs
+            try:
+                ok = process(con, mid, path, self.lg, self.model)
+                self.lg.info("moment %d %s (%s), %.0fs after the spike", mid, "CLIP READY" if ok else "no clip",
+                             path.rsplit("/", 1)[-1].rsplit("-", 1)[0], time.time() - spike_t)
+            except Exception:   # never let one bad moment end the worker thread (clips would silently stop)
+                self.lg.exception("worker: moment %d crashed", mid)
+                try:
+                    con = db.connect()
+                except Exception:
+                    pass
+            beat("worker", {"moment": None, "since": time.time()})
 
     # ---- main loop ------------------------------------------------------
     async def supervise(self, ch):
@@ -240,6 +249,8 @@ class Live:
         n = 0
         while True:
             await asyncio.sleep(2)
+            if n % 15 == 0:
+                beat("loop", {"t": time.time()})
             for sp in self.det.tick(time.time()):
                 self.on_spike(sp)
             self.dispatch_due()
@@ -247,23 +258,51 @@ class Live:
             if n % 1800 == 0:
                 self.lg.info("deleted %d old raw files", vid.cleanup(self.L["keep_h"]))
 
+    async def guard(self, name, make):
+        await guard(name, make, self.lg)
+
     async def main(self):
         tw = [c for c, e in self.chans.items() if e["platform"] == "twitch"]
-        tasks = ([twitch.read(tw, self.on_message, self.lg)] if tw else []) + [self.loop()]
-        tasks += [youtube.read_one(c, vid.stream_url("youtube", c), self.on_message, self.lg)
-                  for c, e in self.chans.items() if e["platform"] == "youtube"]
+        tasks = ([self.guard("twitch", lambda: twitch.read(tw, self.on_message, self.lg))] if tw else [])
+        tasks.append(self.guard("loop", self.loop))
+        for c, e in self.chans.items():
+            if e["platform"] == "youtube":
+                tasks.append(self.guard(c, lambda c=c: youtube.read_one(
+                    c, vid.stream_url("youtube", c), self.on_message, self.lg)))
         for c, e in self.chans.items():
             if e["platform"] != "kick":
                 continue
             room = e.get("kick_chatroom") or kick.lookup_chatroom(c)   # --channels kick/x: look it up
             if room:
-                tasks.append(kick.read_one(c, int(room), self.on_message, self.lg))
+                tasks.append(self.guard(c, lambda c=c, room=room: kick.read_one(c, int(room), self.on_message, self.lg)))
             else:
                 self.lg.warning("%s: no kick_chatroom (streamers.yaml or Kick API), loudness trigger only", c)
-        tasks += [self.supervise(c) for c, e in self.chans.items() if e["tier"] == "A"]
-        tasks += [self.watch_loudness(c) for c in self.chans if self.uses_loud(c)]
+        tasks += [self.guard(c, lambda c=c: self.supervise(c)) for c, e in self.chans.items() if e["tier"] == "A"]
+        tasks += [self.guard(c, lambda c=c: self.watch_loudness(c)) for c in self.chans if self.uses_loud(c)]
         threading.Thread(target=self.worker, daemon=True).start()
         await asyncio.gather(*tasks)
+
+
+def beat(name: str, d: dict):
+    """Heartbeat file data/app/<name>.beat for studio.watchdog (stale = hung)."""
+    try:
+        f = DATA / "app" / f"{name}.beat"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(d))
+    except Exception:
+        pass
+
+
+async def guard(name, make, lg):
+    """Run one watcher; if it raises, log it and restart it, so one bad source never stops the whole run."""
+    while True:
+        try:
+            await make()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            lg.exception("%s watcher crashed (restarting in 10 s)", name)
+        await asyncio.sleep(10)
 
 
 def run(channels: str | None, model: str | None):
@@ -274,10 +313,13 @@ def run(channels: str | None, model: str | None):
         raise typer.Exit("No channels to watch. Fill config/streamers.yaml (S5) or pass --channels a:A,b:B")
     lg.info("watching %s", ", ".join(f"{c['name']}(tier {c['tier']})" for c in chans))
     lv = Live(chans, model, lg)
+    stopped = DATA / "app" / "live.stopped"
+    stopped.unlink(missing_ok=True)
     try:
         asyncio.run(lv.main())
-    except KeyboardInterrupt:
-        pass
+    except KeyboardInterrupt:   # Stop button / Ctrl-C: a wanted stop, the watchdog must not restart it
+        stopped.parent.mkdir(parents=True, exist_ok=True)
+        stopped.write_text(datetime.now().isoformat())
     finally:
         import os, signal
         for p in lv.recorders.values():

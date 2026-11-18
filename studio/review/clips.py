@@ -1,5 +1,6 @@
 """Finished clips for the control app, plus the user's grades and 'posted' notes."""
 import os
+import time
 import re
 from pathlib import Path
 
@@ -39,7 +40,8 @@ def _rows(con, where: str = "", args=()):
     return con.execute(
         "SELECT m.id, m.state, m.score, m.reason, m.title, m.hashtags, m.clip_path, m.layout, m.j_start, m.j_end,"
         " m.judge_model, m.updated, m.source_id, s.streamer, s.platform, s.url, s.title AS source_title,"
-        " g.score AS grade, g.notes, g.yt_views"
+        " g.score AS grade, g.notes, g.yt_views,"
+        " CAST(strftime('%s', g.updated) AS REAL) AS graded_at"
         " FROM moments m JOIN sources s ON s.id = m.source_id LEFT JOIN grades g ON g.moment_id = m.id"
         f" WHERE m.clip_path IS NOT NULL {where}", args).fetchall()
 
@@ -59,6 +61,11 @@ def list_clips(con=None) -> list[dict]:
         d["mtime"] = os.path.getmtime(p)
         d["name"] = Path(p).stem
         d["posted"] = posts.get(r["id"], [])
+        # Remade = you already graded or left notes, and the clip file was rewritten after that.
+        # Grading it again (or editing the note) clears the flag.
+        d["remade"] = bool(d.get("graded_at")) and d["mtime"] > d["graded_at"] + 5
+        # To review = remade, or made in the last 3 h and not rated by you yet.
+        d["unrated"] = (not d["grade"]) and not d["posted"] and (time.time() - d["mtime"] < 3 * 3600)
         out.append(d)
     out.sort(key=lambda d: (d["mtime"], d["id"]), reverse=True)
     res = []

@@ -189,6 +189,7 @@ def live_status() -> dict:
 def start_live() -> dict:
     if live_status()["running"]:
         raise RuntimeError("Clipping is already running")
+    (state_dir() / "live.stopped").unlink(missing_ok=True)
     return start("live", LIVE_CMD, "Clipping")
 
 
@@ -196,4 +197,5 @@ def stop_live() -> bool:
     d = live_status()
     if not d["running"]:
         return False
+    (state_dir() / "live.stopped").write_text(datetime.now().isoformat())   # wanted stop: studio.watchdog leaves it off
     return stop("live", d["pid"])

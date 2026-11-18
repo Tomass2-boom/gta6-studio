@@ -58,7 +58,7 @@ def transcribe(video: str, start: float, end: float) -> dict:
     with tempfile.TemporaryDirectory() as d:
         wav = str(Path(d) / "a.wav")
         subprocess.run(["ffmpeg", "-v", "error", "-ss", str(a), "-t", str(end + pad - a), "-i", video,
-                        "-vn", "-ac", "1", "-ar", "16000", wav], check=True)
+                        "-vn", "-ac", "1", "-ar", "16000", wav], check=True, timeout=300)
         best = _once(wav, cfg, a)
         for _ in range(cfg.get("retries", 2)):
             if not best[2]:

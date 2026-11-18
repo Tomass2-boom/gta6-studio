@@ -18,12 +18,16 @@ DROP it if it is mostly story cutscene dialogue (characters talking the plot), s
 dead air, songs or music lyrics, technical trouble (stream, camera, cables, settings, brightness),
 or chatter that is not about the game. A big streamer reaction during a cutscene is fine only if the
 streamer's own words fill most of the clip and nothing about the plot is given away.
-If keep, cut it TIGHT, snapped to sentence boundaries:
+If keep, cut it at sentence boundaries. Do NOT cut a good moment short (user ratings: clips of 7-10 s ended while viewers were still hooked):
 - start ON the setup line: the first line that tells the viewer what to watch for (a question, the
   streamer saying what they are about to do or see, or the first words of the opinion). No warm-up before it.
-- end right after the payoff: the punchline, the reaction peak or the last words of the opinion.
-  Nothing after it.
-- {len_min}-{len_max} s is best. Go longer, up to {len_cap} s, ONLY for a genuinely interesting moment with a strong hook that keeps advancing (something new every few seconds, no dead stretch); otherwise keep it short.
+- keep going while it stays interesting: a strong hook means viewers want to see what happens next, so let the
+  moment play out to the PAYOFF (the punchline, the reaction peak, the last words of the opinion) and end right
+  after it. Never end in the middle of the action, a sentence or before the payoff. Cut only where it gets
+  boring or the payoff is done.
+- There is no fixed length: it depends on the moment. A typical clip is about {len_min}-{len_max} s, but a clip with
+  a great hook that gets more and more interesting as it plays should run longer, up to {len_cap} s. Stop at
+  the payoff or the moment interest drops, not at a number.
 Reply ONLY JSON: {{"keep": bool, "score": 1-10, "start": sec, "end": sec,
 "title": "{title_hint}", "hashtags": ["#gta6", ...], "reason": "one line",
 "keywords": ["up to 8 punchy words spoken in the clip to highlight in captions, no swear words or filler"]}}"""
@@ -127,6 +131,18 @@ def snap_end(segments: list[dict], end: float, pad: float) -> float:
             end = s["end"]
             break
     return end + pad
+
+
+def extend_short(segments: list[dict], start: float, end: float, min_len: float, max_gap: float = 3.0) -> float:
+    """A clip shorter than `min_len` while the talk carries on is a cut-off clip (user ratings 2026-11-18: 7-10 s
+    clips ended mid-hook). Move the end forward, one whole sentence at a time, through unbroken talk
+    (gaps <= max_gap) until the clip reaches `min_len`."""
+    for s in sorted(segments, key=lambda x: x["start"]):
+        if end - start >= min_len:
+            break
+        if s["end"] > end and s["start"] - end <= max_gap:
+            end = s["end"]
+    return end
 
 
 def judge(segments: list[dict], model: str | None = None, tries: int = 3, launch: dict | None = None,

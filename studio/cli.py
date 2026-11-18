@@ -209,6 +209,23 @@ def backfill(since: str = typer.Option("2026-11-18T11:00:00Z", help="Only moment
     run(since, until, [c.lower() for c in channel] if channel else None, top, dry_run, model, log("backfill"))
 
 
+@app.command("fill-gaps")
+def fill_gaps(add: str = typer.Option(None, help="Add a gap by hand first: 'HH:MM-HH:MM' local time, today"),
+              dry_run: bool = typer.Option(False, "--dry-run", help="Only list the gaps")):
+    """Clip the stretches live mode missed (crash/restart): replay chat from the VODs, then backfill."""
+    from datetime import datetime
+    from . import fillgaps
+    if add:
+        a, b = (datetime.combine(datetime.now().date(), datetime.strptime(x, "%H:%M").time()).timestamp()
+                for x in add.split("-"))
+        fillgaps.add(a, b)
+    if dry_run:
+        for g in fillgaps.load_gaps():
+            typer.echo(f"{g.get('local')}  filled={g.get('filled')}")
+        return
+    fillgaps.run(log("fillgaps"))
+
+
 @app.command()
 def rejudge(since: str = typer.Option("2026-11-18", help="Only moments created on/after this (UTC, DB time)"),
             dropped: bool = typer.Option(True, help="Only moments the judge dropped (else every judged one)"),

@@ -226,7 +226,7 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
                               if events else (None, None))
         tmp = os.path.join(d, "out.mp4")
         r = subprocess.run(ffmpeg_cmd(ffmpeg, src["path"], a, b, vf, af, out["crf"], tmp, sfx_args, sfx_graph),
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, timeout=1200)   # a hung ffmpeg fails the moment, not the run
         if r.returncode:
             raise RuntimeError(f"ffmpeg failed: {r.stderr[-800:]}")
         os.replace(tmp, path)

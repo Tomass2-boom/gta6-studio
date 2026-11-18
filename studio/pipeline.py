@@ -27,7 +27,7 @@ def decide(con, m, segments: list[dict], src, src_path: str, lg, model: str | No
     """Judge a transcribed moment and render it if kept. Used by process() and `studio rejudge`."""
     from .cli import _clamp, _render_one
     import time
-    from .judge.llm import as_list, hook_title, judge, launch_cfg, snap_end
+    from .judge.llm import as_list, hook_title, judge, launch_cfg, snap_end, extend_short
     cfg = load("settings")
     mid = m["id"]
     tr = {"segments": segments}
@@ -37,6 +37,7 @@ def decide(con, m, segments: list[dict], src, src_path: str, lg, model: str | No
         lc = launch_cfg(dict(src) if src else None, tr["segments"], when)
         j = judge(tr["segments"], model, launch=lc, streamer=src["streamer"] if src else None)
         j["end"] = snap_end(tr["segments"], j["end"], cfg["clip"].get("end_pad_s", 0))
+        j["end"] = extend_short(tr["segments"], j["start"], j["end"], cfg["clip"].get("min_keep_s", 15))
         j["title"] = hook_title(j.get("title"), lc, bool(j.get("first_look")), mid)
         db.update(con, mid, state="judged", keep=int(bool(j.get("keep"))), score=j.get("score"),
                   reason=j.get("reason"), title=j.get("title"), hashtags=" ".join(j.get("hashtags", [])),

@@ -38,7 +38,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .scroll{max-height:62vh;overflow:auto}
 /* clips */
 .clips{display:grid;grid-template-columns:360px 1fr;gap:16px}
-.clist{max-height:calc(100vh - 110px);overflow:auto;display:flex;flex-direction:column;gap:8px}
+.clist{max-height:calc(100vh - 160px);overflow:auto;display:flex;flex-direction:column;gap:8px}
 .citem{padding:12px;border-radius:12px;background:var(--panel);border:2px solid transparent;cursor:pointer}
 .citem.sel{border-color:var(--pink)}
 .citem b{display:block;font-size:15px}
@@ -105,7 +105,14 @@ th{color:var(--dim);font-weight:500}
 <!-- CLIPS -->
 <section id="clips">
   <div class="clips">
-    <div class="clist" id="clist"></div>
+    <div>
+      <select id="sortBy" onchange="try{localStorage.sortBy=this.value}catch(e){} loadClips()" style="margin-bottom:10px">
+        <option value="new">Sort: Newest first</option><option value="review">To review (remade + new, not rated yet)</option><option value="old">Sort: Oldest first</option>
+        <option value="ai">Sort: AI score (high to low)</option><option value="you">Sort: Your score (high to low)</option>
+        <option value="long">Sort: Longest first</option><option value="short">Sort: Shortest first</option>
+      </select>
+      <div class="clist" id="clist"></div>
+    </div>
     <div id="detail" class="card"><p class="dim">Pick a clip on the left.</p></div>
   </div>
 </section>
@@ -211,9 +218,12 @@ async function loadClips() {
   if (tab !== "clips" && fresh) { const b = $("#newBadge"); b.textContent = fresh; b.style.display = "inline"; }
   if (tab === "clips") seenIds = new Set(allIds);
   const now = Date.now() / 1000;
-  $("#clist").innerHTML = r.clips.map(c => `<div class="citem ${c.id === selId ? "sel" : ""}" onclick="openClip(${c.id})">
+  const len = c => (c.j_end != null && c.j_start != null) ? c.j_end - c.j_start : 0;
+  const key = {new: c => c.mtime, old: c => -c.mtime, ai: c => c.score || 0, you: c => c.grade || 0, long: len, short: c => -len(c)}[$("#sortBy").value] || (c => c.mtime);
+  const sorted = [...($("#sortBy").value === "review" ? r.clips.filter(c => c.remade || c.unrated) : r.clips)].sort((a, b) => key(b) - key(a) || b.mtime - a.mtime);
+  $("#clist").innerHTML = sorted.map(c => `<div class="citem ${c.id === selId ? "sel" : ""}" onclick="openClip(${c.id})">
     <b>${esc(c.title || c.name)}</b><span class="dim" style="font-size:13px">${esc(c.streamer)} · ${new Date(c.mtime * 1000).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"})}</span>
-    <div class="tags">${now - c.mtime < 1800 ? '<span class="tag new">NEW</span>' : ""}${c.score ? `<span class="tag">AI ${c.score}/10</span>` : ""}${c.grade ? `<span class="tag grade">You ${c.grade}/10</span>` : ""}${c.posted.map(p => `<span class="tag posted">✓ ${p}</span>`).join("")}</div></div>`).join("") || '<p class="dim">No clips yet. Start clipping, or make clips from a link in Tools.</p>';
+    <div class="tags">${now - c.mtime < 1800 ? '<span class="tag new">NEW</span>' : ""}${c.remade ? '<span class="tag new" style="background:#b45309">REMADE · review</span>' : c.unrated ? '<span class="tag new" style="background:#1d4ed8">TO RATE</span>' : ""}${c.score ? `<span class="tag">AI ${c.score}/10</span>` : ""}${c.grade ? `<span class="tag grade">You ${c.grade}/10</span>` : ""}${c.posted.map(p => `<span class="tag posted">✓ ${p}</span>`).join("")}</div></div>`).join("") || ($("#sortBy").value === "review" ? '<p class="dim">Nothing waiting for your review.</p>' : '<p class="dim">No clips yet. Start clipping, or make clips from a link in Tools.</p>');
 }
 const PL = {youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram"};
 let cur = null, markMode = false, markKind = "circle";
@@ -304,6 +314,7 @@ async function pollJobs() {
   if (re.ok) $("#renderOut").innerHTML = jobHtml(re, "Nothing re-made yet.");
 }
 
+try{if(localStorage.sortBy)$("#sortBy").value=localStorage.sortBy}catch(e){}
 pollLive(); loadClips();
 setInterval(pollLive, 3000);
 setInterval(loadClips, 10000);
