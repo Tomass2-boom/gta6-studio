@@ -3,24 +3,36 @@ import re
 import requests
 from ..config import load
 
-PROMPT = """You pick moments for viral GTA gameplay Shorts from a streamer's transcript. {game_rule}
+PROMPT = """You pick moments for viral GTA gameplay Shorts from a streamer's transcript. {game_rule}{who}
 Transcript lines are "[start-end] text" in seconds of the source video:
 {lines}
 
-Decide if this is a clip-worthy moment (funny, shocking, skillful, a big reaction, a glitch).
-KEEP "first look" moments when the streamer reacts strongly: the menus, the character creator, the first
-spawn, the map, the first drive, the graphics, the first time they see something new.
+Decide if this is a clip-worthy moment. KEEP these kinds:
+- a big reaction: funny, shocking, a fail, a glitch, a fight or argument with an NPC, something going wrong;
+- a "first time" discovery: the first time the streamer sees or tries a part of the game (the map, water,
+  a vehicle, a sport, a phone, a feature, physics or damage, a menu, the character creator, the graphics)
+  and reacts to it;
+- the streamer's own verdict on the game told to chat: what they like or dislike, whether it is good, bad,
+  realistic or worth the wait, how it compares to other games. These short opinions do very well.
 DROP it if it is mostly story cutscene dialogue (characters talking the plot), story spoilers/endings,
-dead air, or chatter. A big streamer reaction during a cutscene is fine only if the streamer's own words
-fill most of the clip and nothing about the plot is given away.
-If keep, choose start/end snapped to sentence boundaries (15-50 s long, 60 max) so the clip has
-a hook at the start and the payoff before the end.
+dead air, songs or music lyrics, technical trouble (stream, camera, cables, settings, brightness),
+or chatter that is not about the game. A big streamer reaction during a cutscene is fine only if the
+streamer's own words fill most of the clip and nothing about the plot is given away.
+If keep, cut it TIGHT, snapped to sentence boundaries:
+- start ON the setup line: the first line that tells the viewer what to watch for (a question, the
+  streamer saying what they are about to do or see, or the first words of the opinion). No warm-up before it.
+- end right after the payoff: the punchline, the reaction peak or the last words of the opinion.
+  Nothing after it.
+- {len_min}-{len_max} s is best; up to {len_cap} s only when the moment needs the build-up.
 Reply ONLY JSON: {{"keep": bool, "score": 1-10, "start": sec, "end": sec,
 "title": "{title_hint}", "hashtags": ["#gta6", ...], "reason": "one line",
 "keywords": ["up to 8 punchy words spoken in the clip to highlight in captions, no swear words or filler"]}}"""
 
 GAME_RULE = "The game may be GTA 5 or GTA 6; never name the game in titles unless the transcript says so."
 TITLE_HINT = "short hook title, no clickbait lies"
+TITLE_HINT_WHO = ("short hook title in third person that names the streamer and the specific thing that "
+                  "happens, no clickbait lies")
+WHO = "\nThe streamer is {name}."
 
 LAUNCH_RULE = "Do not name the game in the title: a launch hook is put in front of it later."
 LAUNCH_FIELD = (', "first_look": true only if the streamer sees a part of the game for the first time '
@@ -107,30 +119,47 @@ def keywords(text: str, n: int = 8, model: str | None = None) -> list[str]:
                 return []
 
 
-def judge(segments: list[dict], model: str | None = None, tries: int = 3, launch: dict | None = None) -> dict:
+def snap_end(segments: list[dict], end: float, pad: float) -> float:
+    """Never cut the payoff mid-sentence (user ratings 2026-11-18: 'he didn't finish the sentence').
+    An end inside a transcript line moves to that line's end; then `pad` seconds so the last word rings out."""
+    for s in segments:
+        if s["start"] < end < s["end"]:
+            end = s["end"]
+            break
+    return end + pad
+
+
+def judge(segments: list[dict], model: str | None = None, tries: int = 3, launch: dict | None = None,
+          streamer: str | None = None) -> dict:
     for i in range(tries):
         try:
-            return _judge(segments, model, launch)
+            return _judge(segments, model, launch, streamer)
         except (ValueError, KeyError):  # JSONDecodeError is a ValueError
             if i == tries - 1:
                 raise
 
 
-def prompt(lines: str, launch: dict | None = None) -> str:
+def prompt(lines: str, launch: dict | None = None, streamer: str | None = None) -> str:
+    c = load("settings")["clip"]
+    lo, hi = c.get("target_len_s", [8, 30])
+    kw = dict(lines=lines, len_min=lo, len_max=hi, len_cap=c["max_len_s"],
+              who=WHO.format(name=streamer) if streamer else "",
+              title_hint=TITLE_HINT_WHO if streamer else TITLE_HINT)
     if launch:
-        p = PROMPT.format(lines=lines, game_rule=LAUNCH_RULE, title_hint=TITLE_HINT)
+        p = PROMPT.format(game_rule=LAUNCH_RULE, **kw)
         return p.replace('"reason": "one line",', '"reason": "one line"' + LAUNCH_FIELD + ",")
-    return PROMPT.format(lines=lines, game_rule=GAME_RULE, title_hint=TITLE_HINT)
+    return PROMPT.format(game_rule=GAME_RULE, **kw)
 
 
-def _judge(segments: list[dict], model: str | None = None, launch: dict | None = None) -> dict:
+def _judge(segments: list[dict], model: str | None = None, launch: dict | None = None,
+           streamer: str | None = None) -> dict:
     cfg = load("settings")["judge"]
     model = model or cfg["model"]
     lines = "\n".join(f"[{s['start']:.1f}-{s['end']:.1f}] {s['text']}" for s in segments)
     r = requests.post(cfg["ollama_url"] + "/api/chat", timeout=600, json={
         "model": model, "stream": False, "think": False,
         "options": {"temperature": 0.3},
-        "messages": [{"role": "user", "content": prompt(lines, launch)}]})
+        "messages": [{"role": "user", "content": prompt(lines, launch, streamer)}]})
     r.raise_for_status()
     txt = r.json()["message"]["content"]
     m = re.search(r"\{.*\}", txt, re.S)

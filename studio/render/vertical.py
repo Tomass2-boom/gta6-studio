@@ -84,6 +84,15 @@ def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, fo
             tl = [f is not None for f in best]
             share = sum(tl) / max(1, len(tl))
             how += ", face check (no cam border)"
+        if share < style["layout_a"]["cam_presence"] and not how.startswith("face cut-out"):
+            # The stored box (streamers.yaml or cache) is not where the cam is in this clip: streamers move
+            # their cam (xQc, Kai, N3on on 2026-11-18). Look for it again on this clip before giving up on A.
+            cam2, how2 = FC.auto_box(src["streamer"], src["path"], a, b, w, h, fresh=True)
+            if cam2 and tuple(cam2) != tuple(cam):
+                tl2 = L.cam_timeline(src["path"], a, b, cam2, w, h)
+                share2 = sum(tl2) / max(1, len(tl2))
+                if share2 > share:
+                    cam, tl, share, how = cam2, tl2, share2, f"{how2} (stored box seen in only {share:.0%})"
         if want == "AUTO" and share < style["layout_a"]["cam_presence"]:
             return _b_or_c(style, src, a, b, w, h, f"cam seen in only {share:.0%} of the clip")
         off = L.off_ranges(tl, style["layout_a"]["switch_min_s"])

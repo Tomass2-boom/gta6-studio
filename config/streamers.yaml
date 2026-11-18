@@ -28,6 +28,8 @@ streamers:
     platform: twitch
     channel: kaicenat
     tier: B
+    facecam: [0, 287, 260, 148]   # measured on the GTA 6 stream 2026-11-18 (auto-detect missed it: 5 clips without cam)
+    ref: [1280, 720]
     allowed: null
     note: "NZ trip is a rumour (one YouTube Short); reported GTA III-V marathon before launch. Twitch warned about the NZ trick"
   - name: Jelly
@@ -59,7 +61,7 @@ streamers:
     channel: xqc
     tier: A
     allowed: null
-    facecam: [0, 0, 250, 188]
+    facecam: [0, 359, 244, 196]   # measured on the GTA 6 stream 2026-11-18 (was [0, 0, 250, 188] top-left)
     ref: [1280, 720]
     note: "#1 English GTA creator, 22.7M hours in 2026 (Twitch + Kick; Kick slug unchecked)"
   - name: Jynxzi
@@ -101,12 +103,43 @@ streamers:
     tier: A
     allowed: null
     note: "announced GTA VI stream 9 PM ET Nov 18 = Thu 02:00 UTC (03:00 CET); NZ trip reported but unconfirmed; ~12 h daily streams"
-    facecam: [0, 500, 640, 580]   # green-screen cut-out (box starts above his hair for headroom), bottom-left (measured on 6tvRv7N1E_c, 2026-11-18)
-    ref: [1920, 1080]
+    facecam: [0, 306, 258, 162]   # framed cam, left edge, on his GTA 6 stream (measured 2026-11-18 evening). Before: green-screen cut-out [0, 500, 640, 580] ref 1920x1080 on 6tvRv7N1E_c
+    ref: [1280, 720]
   - name: xQc
     platform: youtube
     live: false   # VOD test source only (S7: skip entries with live: false)
     allowed: null
     facecam: [0, 0, 250, 188]
     ref: [1280, 720]
+  # --- Added 2026-11-18 evening: live with GTA 6 now and getting the most clipper views on TikTok ---
+  - name: Lacy
+    platform: twitch
+    channel: lacy
+    tier: A
+    allowed: null
+    note: "24/7 GTA 6 marathon; his own TikTok clips hit 0.4-3M on launch day"
+  - name: Clix
+    platform: twitch
+    channel: clix
+    tier: A
+    allowed: null
+    note: "24/7 GTA 6 marathon; @moreclixtv clips 0.1-1.2M on launch day"
+  - name: Nixstah
+    platform: twitch
+    channel: nixstah
+    tier: B
+    allowed: null
+    note: "GTA 6 stream; his own TikToks 0.2-2M (jet, Kia boys, police chase)"
+  - name: TheBurntPeanut
+    platform: twitch
+    channel: theburntpeanut
+    tier: B
+    allowed: null
+    note: "streams GTA 6 from New Zealand on Twitch and Kick (kick chatroom 15250312)"
+  - name: Typical Gamer
+    platform: youtube
+    channel: TypicalGamer
+    tier: A
+    allowed: null
+    note: "YouTube GTA 6 early-access stream; his TikToks 0.8-3M on launch day"
 blocklist: []

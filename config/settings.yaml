@@ -37,12 +37,14 @@ whisper:
 clip:
   pre_roll_s: 20
   post_roll_s: 40
-  max_len_s: 60
+  max_len_s: 45           # hard cap (was 60). Clipper hits on launch day were mostly 7-24 s (study 2026-11-18)
+  target_len_s: [8, 30]   # what the judge aims for: setup line to payoff, nothing after
+  end_pad_s: 0.8          # after snapping the end to the end of the sentence (ratings: endings were cut off)
   max_frozen_share: 0.6   # drop a clip whose picture stands still this much of the time (capture card "No input signal", BRB screens). 1 = off
   min_score: 6
   loud_z: 1.8        # lower = more candidates
   max_window_s: 90   # cap on a merged candidate window
-  min_len_s: 15
+  min_len_s: 7       # was 15: a short cut was padded with 7+ s of trailing chatter
   heatmap_min: 0.6
   merge_gap_s: 30
 render:
@@ -78,8 +80,8 @@ live:
   min_len_s: 15           # contiguous video needed; shorter (ad gaps) is dropped
   hole_s: {kick: 10}      # Kick names chunks in bursts (lag up to 30 s, then catches up; jitter ±5 s): measure chunks, a hole = lag that stays > this. Others: fixed 10 s grid
   chunk_s: 10             # Tier A recording is cut into chunks named by wall-clock time
-  keep_h: 24              # raw recordings and segments are deleted after this
-  quality: "720p60,720p,best"   # what Tier A records and Tier B fetches. 1080p60 is ~8.5 Mbps per stream; 720p60 ~3-5. Clips are 30 fps. Override per streamer with `quality:` in streamers.yaml
+  keep_h: 12              # raw recordings and segments are deleted after this (12 h since 1080p, 2026-11-18)
+  quality: "1080p60,1080p,720p60,best"   # 1080p since 2026-11-18 (109 Mbps line). What Tier A records and Tier B fetches. 1080p60 is ~8.5 Mbps per stream; 720p60 ~3-5. Clips are 30 fps. Override per streamer with `quality:` in streamers.yaml
   max_rewinds: 2          # Tier B rewinds downloading at once; more spikes at the same time are skipped (each one is a full stream download)
   tier_b_duration_s: 80   # Tier B: Twitch rewind gives ~30-50 s back, then it records forward to this length
   loud_z: 1.8

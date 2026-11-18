@@ -179,9 +179,10 @@ def cached_box(streamer: str, w: int, h: int, video: str | None = None):
     return None, e.get("video") == video
 
 
-def auto_box(streamer: str, video: str, a: float, b: float, w: int, h: int):
-    """Cached or freshly detected cam box for this streamer. Returns (box | None, note)."""
-    box, known = cached_box(streamer, w, h, video)
+def auto_box(streamer: str, video: str, a: float, b: float, w: int, h: int, fresh: bool = False):
+    """Cached or freshly detected cam box for this streamer. Returns (box | None, note).
+    fresh: ignore the cache (the stored box was not seen in this clip: the streamer moved the cam)."""
+    box, known = (None, False) if fresh else cached_box(streamer, w, h, video)
     if known:
         return box, "auto facecam (cached)" if box else "no cam found earlier on this video"
     res = detect(video, a, b, w, h)

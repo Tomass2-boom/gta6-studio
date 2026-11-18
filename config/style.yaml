@@ -28,14 +28,14 @@ layout_mix:
   C: 0.2
 
 layout_a:
-  cam_height: 0.38        # share of the frame height the facecam takes
+  cam_height: 0.45        # share of the frame height the facecam takes. Was 0.38; user 2026-11-18: "face cam bigger, game not so zoomed in" (game crop 51% -> 58% of the width)
   cam_focus_y: 0.5        # where to crop the cam vertically if it is too tall (0 top, 1 bottom)
   gameplay_focus_x: 0.5   # which part of the wide gameplay to keep (0 left, 0.5 centre, 1 right)
   cam_presence: 0.5       # facecam must be seen in this share of the clip to use A (else B)
   switch_min_s: 2         # if the cam is off this long inside an A clip, switch to B for that part
   cutout:                 # borderless green-screen cams (IShowSpeed): found by face, not by a frame
     enabled: true
-    cam_height: 0.30      # smaller face panel (head + shoulders + a bit of game), more room for the action
+    cam_height: 0.42      # was 0.30; user 2026-11-18: Speed's face cam "very very small", doesn't fill the top
   divider:                # thin line between the face panel and the game (2026-11-18, "small details")
     enabled: true
     px: 6
@@ -127,8 +127,8 @@ reaction_tags: false      # *SECURITY* style tags in silent parts (not built yet
 sound_effects:
   enabled: true   # user approved after preview2, 2026-11-18
   volume_db: 0            # master gain on all effects (on top of each kind's gain)
-  max_per_clip: 4         # reaction hits (not counting intro, riser, cut whooshes)
-  min_gap_s: 3            # at least this long between two reaction hits
+  max_per_clip: 2         # reaction hits (not counting intro, riser, cut whooshes). Was 4; user 2026-11-18: big hits overused
+  min_gap_s: 6            # at least this long between two reaction hits (was 3)
   edge_s: 0.6             # no reaction hits this close to the clip start/end
   intro_whoosh: true      # a whoosh as the clip opens
   intro_sound: whoosh-medium-hard
@@ -140,14 +140,14 @@ sound_effects:
   payoff:
     enabled: true
     risers: [riser-2s-strong, riser-1s-strong]   # the longest that fits before the payoff
-    riser_gain_db: 10     # measured: at +2 it added under +1 dB in its band (inaudible)
+    riser_gain_db: 7      # was 10 (2 was inaudible); a riser should sit in the background
     min_start_s: 0.8      # the riser may not start before this (keeps it off the intro whoosh)
-    peak_db: 12           # no reaction words: a peak this far above the median still counts
+    peak_db: 20           # no reaction words: a peak this far above the median still counts. Was 12: the "big sound effect" (boom-hit-strong) then landed on most clips; user 2026-11-18: "only where you really need it"
     onset_db: 6           # ...and the hit lands where the voice first comes within this of that peak
     hit: boom-hit-strong
-    hit_gain_db: 8
+    hit_gain_db: 3        # was 8: "a bit too loud" (user 2026-11-18)
     layer: impact-heavy-hard  # see the bro_what note
-    layer_gain_db: 12     # a payoff sits on a shout: at 7 the layer was still 6-8 dB under the voice
+    layer_gain_db: 7      # was 12 ("too loud", user 2026-11-18); at 7 it sits 6-8 dB under a shout
   # A word trigger only fires when the voice is this many dB above the clip's median loudness
   # (so a calm "what" does nothing; a shouted one does).
   word_loud_db: 6

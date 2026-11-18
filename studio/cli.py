@@ -210,6 +210,34 @@ def backfill(since: str = typer.Option("2026-11-18T11:00:00Z", help="Only moment
 
 
 @app.command()
+def rejudge(since: str = typer.Option("2026-11-18", help="Only moments created on/after this (UTC, DB time)"),
+            dropped: bool = typer.Option(True, help="Only moments the judge dropped (else every judged one)"),
+            dry_run: bool = typer.Option(False, help="Judge and print, change nothing")):
+    """Judge stored transcripts again with the current rules and render the ones now kept. No refetch:
+    the source video must still be on disk (raw recordings are deleted after live.keep_h)."""
+    import json
+    from .pipeline import decide
+    from .judge.llm import judge
+    lg = log("rejudge")
+    con = db.connect()
+    q = ("SELECT m.* FROM moments m JOIN sources s ON s.id = m.source_id WHERE m.created >= ? AND "
+         "m.transcript IS NOT NULL AND m.state IN ('judged', 'failed')" + (" AND m.keep = 0" if dropped else ""))
+    rows = con.execute(q, (since,)).fetchall()
+    lg.info("rejudge: %d moments", len(rows))
+    for m in rows:
+        src = con.execute("SELECT * FROM sources WHERE id=?", (m["source_id"],)).fetchone()
+        segs = json.loads(m["transcript"])
+        if not segs or not src or not src["path"] or not Path(src["path"]).exists():
+            lg.info("moment %d skipped: source video gone", m["id"])
+            continue
+        if dry_run:
+            j = judge(segs, streamer=src["streamer"])
+            print(m["id"], src["streamer"], j.get("keep"), j.get("score"), round(j["end"] - j["start"]), j.get("title"))
+            continue
+        decide(con, m, segs, src, src["path"], lg)
+
+
+@app.command()
 def review(browser: bool = typer.Option(False, "--browser", help="Open in the web browser instead of an app window")):
     """Open the control app (start/stop clipping, clips, grades, settings)."""
     from .review.window import main
