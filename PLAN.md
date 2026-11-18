@@ -175,8 +175,9 @@ What this changes:
 - **Kai Cenat (Twitch):** NZ trip is a rumour from one YouTube Short.
 - So **live mode must follow Kick and YouTube before 11:00 UTC Wednesday**:
   S7 moves ahead of S4 (section 10).
-- **First hour is thin:** streams open with menus and intro cutscenes, which
-  the judge drops on purpose. Expect few clips until real gameplay starts.
+- **First hour:** streams open with menus and intro cutscenes. Since 2026-11-18
+  (user) the judge KEEPS first-look reactions (menus, character creator, first
+  spawn, map, first drive) and still drops story cutscene dialogue and spoilers.
 - **Zero-build fallback** if S7 is not ready: open the Twitch GTA VI
   category, pick who is live (most viewers first) and run
   `uv run studio live --channels name1:A,name2:B,...`. Twitch only.
@@ -226,9 +227,10 @@ faster. Claude is never called by the running pipeline.
   tight cuts help, but TikTok and Instagram may carry more of the views. M8
   measures this so we shift effort to what works.
 - **Rockstar:** written policy covers non-commercial fan use; we are not
-  monetising, which fits. Avoid cutscenes, story spoilers and endings, which
-  are reportedly taken down. The judge step drops moments that are mostly
-  cutscene dialogue.
+  monetising, which fits. Avoid story cutscenes, spoilers and endings, which
+  are reportedly taken down. The judge drops moments that are mostly story
+  cutscene dialogue; menus/character creator/first-look reactions are allowed
+  (user, 2026-11-18).
 - **In-game radio music** can cause copyright claims. Prefer moments where the
   streamer is talking; a muted-music option is a later improvement.
 - **Streamers:** every streamer in `streamers.yaml` has an `allowed` note.

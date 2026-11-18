@@ -26,7 +26,8 @@ that section plus what it points to.
   for the look, `config/streamers.yaml` for sources, `config/settings.yaml`
   for thresholds and posting mode.
 - **Flag copyright and platform-policy risks** before building each stage
-  (PLAN.md section 7). No cutscene or story-spoiler clips. Honour the
+  (PLAN.md section 7). No story-cutscene or story-spoiler clips; menus, character creator and
+  first-look reactions are allowed (user, 2026-11-18). Honour the
   blocklist in `streamers.yaml`. The `allowed` field is a note only: the user
   decides which streamers' clips get posted (decided 2026-11-17), so code never
   refuses a streamer for it.

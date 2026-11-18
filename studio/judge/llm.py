@@ -8,7 +8,11 @@ Transcript lines are "[start-end] text" in seconds of the source video:
 {lines}
 
 Decide if this is a clip-worthy moment (funny, shocking, skillful, a big reaction, a glitch).
-DROP it if it is mostly in-game cutscene dialogue, story spoilers/endings, dead air, or chatter.
+KEEP "first look" moments when the streamer reacts strongly: the menus, the character creator, the first
+spawn, the map, the first drive, the graphics, the first time they see something new.
+DROP it if it is mostly story cutscene dialogue (characters talking the plot), story spoilers/endings,
+dead air, or chatter. A big streamer reaction during a cutscene is fine only if the streamer's own words
+fill most of the clip and nothing about the plot is given away.
 If keep, choose start/end snapped to sentence boundaries (15-50 s long, 60 max) so the clip has
 a hook at the start and the payoff before the end.
 Reply ONLY JSON: {{"keep": bool, "score": 1-10, "start": sec, "end": sec,
