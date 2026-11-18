@@ -10,7 +10,8 @@ RECORDING_FRESH_S = 90  # Kick names chunks in bursts (lag up to 30 s), so allow
 
 def newest_log(stage: str = "live") -> Path | None:
     """The newest data/logs/*-<stage>.log. A run past midnight keeps writing yesterday's file."""
-    logs = sorted((DATA / "logs").glob(f"*-{stage}.log"), key=lambda p: p.stat().st_mtime)
+    logs = sorted((p for p in (DATA / "logs").glob(f"*-{stage}.log") if "-app-" not in p.name),
+                  key=lambda p: p.stat().st_mtime)  # not our own stdout capture (*-app-live.log)
     return logs[-1] if logs else None
 
 

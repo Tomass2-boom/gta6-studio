@@ -149,3 +149,16 @@ def test_start_stop_is_ctrl_c(tmp_path, monkeypatch):
     assert not runner.status("dummy")["running"]
     assert flag.exists()
     assert Path(runner.info("dummy")["log"]).exists()
+
+
+def test_activity_reads_live_log_not_app_capture(tmp_path, monkeypatch):
+    import os
+    monkeypatch.setattr(activity, "DATA", tmp_path)
+    (tmp_path / "logs").mkdir()
+    real = tmp_path / "logs" / "2026-11-18-live.log"
+    real.write_text("moment 1 CLIP READY (n3on), 50s after the spike\n")
+    cap = tmp_path / "logs" / "2026-11-18-app-live.log"
+    cap.write_text("ffmpeg error: something failed\n")
+    os.utime(real, (1, 1))  # the capture is newer
+    assert activity.newest_log("live") == real
+    assert activity.activity()[0]["kind"] == "ready"
