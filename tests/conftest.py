@@ -10,6 +10,13 @@ import sys
 
 import pytest
 
+# werkzeug builds its exception table at import time by iterating its own module globals; imported in the middle of a
+# test run on Python 3.13 that fails with "dictionary changed size during iteration". Import it first, once.
+try:
+    import flask  # noqa: F401
+except Exception:   # pragma: no cover
+    pass
+
 if sys.platform == "win32":
     _read, _write = pathlib.Path.read_text, pathlib.Path.write_text
     pathlib.Path.read_text = lambda self, encoding=None, errors=None, newline=None: _read(self, encoding or "utf-8", errors) \
