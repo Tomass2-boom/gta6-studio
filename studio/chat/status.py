@@ -25,10 +25,11 @@ def write():
     os.replace(tmp, FILE)
 
 
-def read(max_age: float = 60.0) -> list[str] | None:
-    """Channels with a live chat connection, or None if the snapshot is missing or stale (chatlog not running)."""
+def read(max_age: float = 60.0, since: float = 0.0) -> list[str] | None:
+    """Channels with a live chat connection, or None if the snapshot is missing or stale (chatlog not running).
+    since: ignore a snapshot written before this time (a file left over from before a reboot or a restart)."""
     try:
         d = json.loads(FILE.read_text(encoding="utf-8"))
-        return d["ok"] if time.time() - d["t"] <= max_age else None
+        return d["ok"] if time.time() - d["t"] <= max_age and d["t"] >= since else None
     except (OSError, ValueError, KeyError):
         return None

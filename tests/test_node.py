@@ -123,10 +123,12 @@ def test_silent_live_channel_is_found(node_dirs):
 
 def test_chatlog_hung_check(node_dirs):
     check = sv.chatlog_hung(300)
-    assert "stale" in check(time.time(), None)      # no status file: event loop stuck or dead
+    child = sv.Child("chatlog", ["x"])
+    child.started = time.time() - 600
+    assert "stale" in check(time.time(), child)     # no status file: event loop stuck or dead
     status.mark("x", True)
     status.write()
-    assert check(time.time(), None) is None         # fresh status, nobody live: fine
+    assert check(time.time(), child) is None        # fresh status, nobody live: fine
 
 
 def test_housekeeping_retention_and_budget(node_dirs):
@@ -274,3 +276,46 @@ def test_publish_writes_part_then_mp4_then_json_last(tmp_path, monkeypatch):
                       "signals", "signal_score", "quality", "height", "created"}
     assert d["id"] == "win-ch1-1800000050" and d["spike_t"] == 1_800_000_050 and d["t_end"] == d["t_start"] + 100
     assert d["quality"] == "720p60,best" and d["height"] == 720
+
+
+def _live_rows(node_dirs, now, names):
+    seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 30))
+    v = node_dirs / "outbox" / "vods.jsonl"
+    v.parent.mkdir(exist_ok=True)
+    v.write_text("".join(json.dumps({"seen": seen, "platform": "twitch", "channel": n}) + "\n" for n in names))
+
+
+def _chat_age(node_dirs, ch, now, age):
+    d = node_dirs / "chat"
+    d.mkdir(exist_ok=True)
+    f = d / f"{ch}-{date.fromtimestamp(now)}.jsonl"
+    f.write_text("{}\n")
+    os.utime(f, (now - age, now - age))
+
+
+def test_chat_silence_is_counted_from_the_start_of_this_run_and_needs_a_majority(node_dirs, monkeypatch):
+    monkeypatch.setattr(sv, "DATA", node_dirs)
+    now = time.time()
+    status.mark("a", True)
+    status.write()
+    check = sv.chatlog_hung(300)
+    _live_rows(node_dirs, now, ["a", "b", "c", "d"])
+    for ch in "abcd":
+        _chat_age(node_dirs, ch, now, 427)                       # last lines were written before a reboot
+    fresh = sv.Child("chatlog", ["x"])
+    fresh.started = now - 125                                    # chatlog has only been up 2 min
+    assert check(now, fresh) is None                             # the downtime is not chat silence
+    old = sv.Child("chatlog", ["x"])
+    old.started = now - 3600
+    assert "4 of 4" in check(now, old)                           # silent for real: restart
+    _chat_age(node_dirs, "b", now, 5), _chat_age(node_dirs, "c", now, 5), _chat_age(node_dirs, "d", now, 5)
+    assert check(now, old) is None                               # one quiet channel among live ones is normal chat
+    _chat_age(node_dirs, "a", now, 1000)
+    assert "a" in check(now, old) and "twitch:a" in check(now, old)   # but not for 3 x stall_s
+
+
+def test_status_file_from_before_a_restart_does_not_count(node_dirs):
+    status.mark("a", True)
+    status.write()
+    assert status.read(90, since=time.time() - 60) == ["a"]
+    assert status.read(90, since=time.time() + 1) is None        # written before this chatlog started

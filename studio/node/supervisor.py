@@ -186,14 +186,22 @@ class Child:
 
 
 def chatlog_hung(stall_s):
+    """chatlog is stuck if its status file is stale, or if chat went silent on the live channels. Silence is counted
+    from when chatlog started (a file last written before a reboot says nothing about this run), and one quiet channel
+    is not enough: most live channels must be silent for stall_s, or one for 3 x stall_s (a stuck Kick/YouTube reader)."""
     def check(now, child):
-        if chat_status.read(90) is None:
+        if chat_status.read(90, since=child.started) is None:
             return "chat status file stale: event loop stuck"
         chat = DATA / "chat"
+        silent = {}
         for ch, plat in live_channels(OUT / "vods.jsonl", now).items():
             age = chat_file_age(chat, ch, plat, now)
-            if age is not None and age > stall_s:       # has had chat today, live now, silent for stall_s
-                return f"{plat}:{ch} live but no chat line for {age:.0f} s"
+            if age is not None:                          # has had chat today
+                silent[f"{plat}:{ch}"] = min(age, now - child.started)
+        quiet = {c: a for c, a in silent.items() if a > stall_s}
+        if quiet and (2 * len(quiet) >= len(silent) or max(quiet.values()) > 3 * stall_s):
+            c, a = max(quiet.items(), key=lambda kv: kv[1])
+            return f"{len(quiet)} of {len(silent)} live channels silent, {c} for {a:.0f} s"
         return None
     return check
 
@@ -342,7 +350,7 @@ class Node:
 
     def snapshot(self, is_online: bool) -> dict:
         chat = self.child("chatlog")
-        ok = (chat_status.read(90) or []) if is_online and chat and chat.alive() else []
+        ok = (chat_status.read(90, since=chat.started) or []) if is_online and chat and chat.alive() else []
         return {"chat_ok": sorted(ok), "recording": recording_now() if is_online else []}
 
     def write_status(self, now, is_online):
