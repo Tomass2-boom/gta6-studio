@@ -10,7 +10,10 @@ Every 30 s:
   live has stayed up.
 - every downtime is written to data/app/gaps.jsonl; once live is healthy again the stretch is filled
   automatically (`studio fill-gaps`: replay chat from the VODs where chat was not saved, then backfill).
-- vodwatch and Ollama are kept running too.
+- vodwatch and Ollama are kept running too, and `studio import --watch` once a capture node (the Windows PC,
+  docs/windows-node.md) syncs into data/remote/: it clips what the node saved while the Mac slept, best first.
+- remote.mac_capture: when_node_down -> while the node's heartbeat is fresh the Mac does not run its own live
+  (the node captures); when the heartbeat goes stale, live is started again as usual. Default `always`.
 Everything it does goes to data/logs/<date>-watchdog.log AND into the live log, so the app shows it.
 
 Run detached:  nohup caffeinate -i uv run python -m studio.watchdog >/dev/null 2>&1 &
@@ -131,7 +134,30 @@ def start_job(name: str, cmd: list[str], label: str):
             pass
 
 
+def node_healthy(now: float | None = None) -> bool:
+    """A capture node wrote its heartbeat recently and has chat connections."""
+    from .config import load
+    stale = (load("settings").get("remote") or {}).get("heartbeat_stale_s", 300)
+    now = now or time.time()
+    for hb in (DATA / "remote").glob("*/outbox/heartbeat.json"):
+        try:
+            d = json.loads(hb.read_text())
+            if now - float(d["t"]) < stale and d.get("chat_ok"):
+                return True
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+    return False
+
+
+def mac_capture_mode() -> str:
+    from .config import load
+    return (load("settings").get("remote") or {}).get("mac_capture", "always")
+
+
 def ensure_side_services():
+    if any((DATA / "remote").glob("*/outbox")) and not pgrep(r"studio import|studio\.cli import"):
+        log("capture node folder found and importer not running: started `studio import --watch`")
+        start_job("import", ["uv", "run", "studio", "import", "--watch"], "Import from Windows PC")
     if not pgrep(r"studio\.vodwatch"):
         log("vodwatch was not running: started it")
         start_job("vodwatch", ["uv", "run", "python", "-m", "studio.vodwatch"], "VOD watcher")
@@ -183,6 +209,12 @@ class Watchdog:
     def tick(self):
         now = time.time()
         pids = live_pids()
+        if mac_capture_mode() == "when_node_down" and node_healthy(now) and not wanted_stop():
+            if pids:
+                log("Windows capture node is healthy: stopping the Mac's own live (remote.mac_capture: when_node_down)")
+                stop_live(pids)
+            self.down_since, self.gap_pending, self.seen_pid = None, None, None
+            return
         if pids:
             if pids[0] != self.seen_pid:
                 self.seen_pid, self.pid_since = pids[0], now

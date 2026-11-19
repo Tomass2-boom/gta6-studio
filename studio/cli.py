@@ -251,6 +251,14 @@ def fill_gaps(add: str = typer.Option(None, help="Add a gap by hand first: 'HH:M
     fillgaps.run(log("fillgaps"))
 
 
+@app.command("import")
+def import_cmd(watch: bool = typer.Option(False, "--watch", help="Keep running and pick up new moments as they sync"),
+               model: str = typer.Option(None, help="Judge model (default: settings.yaml)")):
+    """Clip the moments the Windows capture node saved (data/remote/), strongest first."""
+    from . import importer
+    importer.run(log("import"), model, watch)
+
+
 @app.command()
 def rejudge(since: str = typer.Option("2026-11-18", help="Only moments created on/after this (UTC, DB time)"),
             dropped: bool = typer.Option(True, help="Only moments the judge dropped (else every judged one)"),
