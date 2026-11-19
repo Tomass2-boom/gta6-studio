@@ -3,12 +3,12 @@ running stream to a .part file as JSON lines; we tail that file. No extra depend
 on YouTube as of 2026-11-17: "Unable to parse initial video data"). Retries when the stream is offline or ends."""
 import asyncio
 import json
-import os
-import signal
 import subprocess
 import time
 
 from ..config import DATA
+from ..node.proc import NO_WINDOW, kill_tree
+from . import status
 from .twitch import _save
 
 
@@ -43,13 +43,14 @@ async def read_one(channel: str, url: str, on_message, log=None, save_chat=True)
             f.unlink()
         p = subprocess.Popen(["yt-dlp", "--skip-download", "--write-subs", "--sub-langs", "live_chat", "-o",
                               f"{base}.%(ext)s", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                             start_new_session=True)
+                             start_new_session=True, creationflags=NO_WINDOW)
         t0, pos, buf, got, first = time.time(), 0, b"", 0, True   # first batch = old backlog
         try:
             while True:
                 await asyncio.sleep(1)
                 alive = p.poll() is None
                 f = next(iter(sorted(d.glob(f"yt-{channel}.live_chat.json*"))), None)   # .part, later the final file
+                status.mark(channel, bool(f) and alive)
                 if f:
                     try:
                         with open(f, "rb") as fh:
@@ -75,10 +76,8 @@ async def read_one(channel: str, url: str, on_message, log=None, save_chat=True)
                     break
         finally:
             if p.poll() is None:
-                try:
-                    os.killpg(p.pid, signal.SIGTERM)
-                except Exception:
-                    pass
+                kill_tree(p.pid)
+            status.mark(channel, False)
         if log:
             log.warning("%s: YouTube chat reader stopped after %.0fs (%d messages); retry in 60 s (offline?)",
                         channel, time.time() - t0, got)

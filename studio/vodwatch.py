@@ -5,12 +5,12 @@ stream start converts chat wall-clock times into VOD offsets. Twitch muted stret
 (muted VOD audio ruins a clip). Run: uv run python -m studio.vodwatch
 """
 import json
+import logging
 import subprocess
 import time
 
-from .config import DATA
+from .config import DATA, load
 from .live import resolve_channels
-import logging
 
 GQL = "https://gql.twitch.tv/gql"
 CID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
@@ -20,7 +20,7 @@ def _curl(url, data=None, headers=()):
     cmd = ["curl", "-s", "-m", "20", "-A", "Mozilla/5.0", *sum((["-H", h] for h in headers), []), url]
     if data:
         cmd += ["-d", json.dumps(data)]
-    return json.loads(subprocess.run(cmd, capture_output=True, text=True).stdout)
+    return json.loads(subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace").stdout)
 
 
 def twitch(logins):
@@ -53,7 +53,8 @@ def kick(slug):
 
 def youtube(handle):
     r = subprocess.run(["yt-dlp", "--print", "%(id)s %(release_timestamp)s %(live_status)s %(title)s", "--skip-download",
-                        f"https://youtube.com/@{handle}/live"], capture_output=True, text=True, timeout=90)
+                        f"https://youtube.com/@{handle}/live"], capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=90)
     if not r.stdout.strip():
         return []
     vid, ts, status, *title = r.stdout.split()
@@ -63,9 +64,28 @@ def youtube(handle):
              "vod": f"https://www.youtube.com/watch?v={vid}", "game": " ".join(title) or None}]
 
 
+def out_file():
+    """Windows capture node (node.enabled in settings.local.yaml): the contract wants data/outbox/vods.jsonl, which
+    Syncthing sends to the Mac. Otherwise the usual data/vods.jsonl."""
+    if (load("settings").get("node") or {}).get("enabled"):
+        (DATA / "outbox").mkdir(parents=True, exist_ok=True)
+        return DATA / "outbox" / "vods.jsonl"
+    return DATA / "vods.jsonl"
+
+
+def beat():
+    """data/app/vodwatch.beat: the node supervisor restarts vodwatch when this stops being refreshed."""
+    try:
+        (DATA / "app").mkdir(parents=True, exist_ok=True)
+        (DATA / "app" / "vodwatch.beat").write_text(str(time.time()), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def main():
     lg = logging.getLogger("vodwatch")
     while True:
+        beat()
         chans = resolve_channels(None, lg)
         rows = []
         for fn, arg in ([(twitch, [e["channel"] for e in chans if e["platform"] == "twitch"])] +
@@ -75,10 +95,13 @@ def main():
                 rows += fn(arg)
             except Exception as ex:
                 rows.append({"error": f"{fn.__name__} {arg}: {type(ex).__name__} {ex}"[:200]})
-        with open(DATA / "vods.jsonl", "a") as f:
+        with open(out_file(), "a", encoding="utf-8", newline="
+") as f:
             for r in rows:
                 f.write(json.dumps({"seen": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **r}) + "\n")
-        time.sleep(600)
+        for _ in range(60):      # 10 min, but keep the beat fresh
+            time.sleep(10)
+            beat()
 
 
 if __name__ == "__main__":

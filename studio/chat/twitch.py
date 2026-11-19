@@ -6,6 +6,7 @@ import time
 from datetime import date
 
 from ..config import DATA
+from . import status
 
 HOST, PORT = "irc.chat.twitch.tv", 6667
 
@@ -35,6 +36,7 @@ async def read(channels: list[str], on_message, log=None, save_chat=True):
                 await w.drain()
                 await asyncio.sleep(1.5)
             delay = 2
+            status.mark(channels, True)
             while True:
                 raw = await asyncio.wait_for(r.readline(), timeout=360)   # Twitch pings every ~5 min
                 if not raw:
@@ -51,6 +53,7 @@ async def read(channels: list[str], on_message, log=None, save_chat=True):
                         _save(m[0], ts, m[1], m[2])
                     on_message(m[0], ts, m[1], m[2])
         except Exception as e:
+            status.mark(channels, False)
             if log:
                 log.warning("Twitch chat connection lost (%s: %s); retry in %ds", type(e).__name__, e, delay)
             await asyncio.sleep(delay)
@@ -61,5 +64,6 @@ def _save(chan, ts, user, text):
     """Keep every chat log (small): useful as test fixtures and for analytics later."""
     d = DATA / "chat"
     d.mkdir(parents=True, exist_ok=True)
-    with open(d / f"{chan}-{date.today()}.jsonl", "a") as f:
+    # utf-8 and "\n" explicitly: Windows would otherwise use cp1252 (emoji crash) and "\r\n"
+    with open(d / f"{chan}-{date.today()}.jsonl", "a", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps({"t": round(ts, 2), "u": user, "m": text}, ensure_ascii=False) + "\n")
