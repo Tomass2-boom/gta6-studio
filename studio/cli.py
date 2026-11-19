@@ -234,6 +234,16 @@ def backfill(since: str = typer.Option("2026-11-18T11:00:00Z", help="Only moment
     run(since, until, [c.lower() for c in channel] if channel else None, top, dry_run, model, log("backfill"))
 
 
+@app.command()
+def vodpass(url: str = typer.Argument(..., help="Twitch VOD link, e.g. https://www.twitch.tv/videos/2932275268"),
+            top: int = typer.Option(80, help="How many of the strongest moments to cut and judge"),
+            dry: bool = typer.Option(False, "--dry", help="Only list the moments it would cut"),
+            model: str = typer.Option(None, help="Override judge model")):
+    """Go through a WHOLE past stream (full transcript read by the local LLM + viewers' Twitch clips + loudness)."""
+    from .vodpass import run
+    run(url, top, dry, model, log("vodpass"))
+
+
 @app.command("fill-gaps")
 def fill_gaps(add: str = typer.Option(None, help="Add a gap by hand first: 'HH:MM-HH:MM' local time, today"),
               dry_run: bool = typer.Option(False, "--dry-run", help="Only list the gaps")):
