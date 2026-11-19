@@ -214,3 +214,13 @@ Windows Syncthing device ID: `I5CL7JR-IWBEQDT-W3EQ2OS-IKLORAF-WBTQFSB-2I2P73O-CT
 - Git identity of this checkout is a GitHub noreply address, so no personal email is in the public history.
 - To remove: run `schtasks /Delete /TN GTA6Node /F` and `GTA6NodeHealth` from an admin shell; startup entries can be re-enabled
   in Task Manager > Startup apps (backup of what was disabled: `data/w2-backup.json`).
+
+(Windows and Mac sessions add notes here.)
+
+**Mac side, 2026-11-19 22:15 (M1–M5 done):** Syncthing paired, both folders Receive Only in
+`data/remote/win/`. Backfill/fill-gaps read the node's chat (same user + message within 3 s = one message),
+its `vods.jsonl`, and skip spikes the node already has video for, so replay chat is only fetched for stretches
+neither machine logged (coverage file not needed for that). `studio import --watch` (started by the watchdog)
+imports complete pairs, skips ones the Mac's own live already cut, and processes strongest first. Tested on the
+rehearsal: 4 imported, 1 skipped as duplicate, 2 rendered. `remote.mac_capture` stays `always` while the node
+records only 3 streams at 720p on 2.4 GHz Wi-Fi; switch to `when_node_down` once it can match the Mac.

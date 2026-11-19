@@ -93,7 +93,13 @@ def streamers(running: bool, now: float | None = None) -> list[dict]:
         if platform != "twitch":
             tier = "A"  # live.py records non-Twitch Tier B continuously
         d = DATA / "raw" / "live" / ch
-        newest = max((p.stat().st_mtime for p in d.glob("*.ts")), default=0) if d.exists() else 0
+        newest = 0
+        if d.exists():
+            for p in d.glob("*.ts"):
+                try:  # a segment can be deleted between glob and stat
+                    newest = max(newest, p.stat().st_mtime)
+                except FileNotFoundError:
+                    pass
         recording = running and now - newest < RECORDING_FRESH_S
         if name.lower() in block or ch in block:
             st, kind = "Blocked: never clipped", "off"

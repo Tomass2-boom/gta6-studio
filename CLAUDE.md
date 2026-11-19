@@ -101,3 +101,9 @@ user that it resets the cache.
 - Long test runs and stream recordings run in the background; do not poll.
 - When context passes about 150k tokens or the milestone is done, tell the
   user to press **End** so the handoff is saved.
+
+## Health check ("check everything / make sure it runs")
+
+Follow `docs/HEALTH-CHECK.md`. This job is routine and can be done by a cheaper
+model: Haiku 5.5 is enough. Tell the user they can start a new session on Haiku
+and say "run the health check" instead of asking Sonnet/Opus.

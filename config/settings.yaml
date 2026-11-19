@@ -52,6 +52,13 @@ render:
   # ffmpeg-full (Homebrew, keg-only) has libass for captions; the plain ffmpeg does not.
   ffmpeg: /opt/homebrew/opt/ffmpeg-full/bin/ffmpeg
   ffprobe: /opt/homebrew/opt/ffmpeg-full/bin/ffprobe
+remote:
+  # Windows capture node (docs/windows-node.md). Its files arrive by Syncthing in data/remote/<node>/;
+  # `studio import --watch` (the watchdog keeps it running) clips them, strongest first.
+  import_delay_s: 600      # while the Mac's own live runs, a Windows moment waits this long so the Mac's cut (1080p) wins
+  heartbeat_stale_s: 300   # node heartbeat older than this = node down
+  mac_capture: always      # always | when_node_down (Mac skips its own live while the node is healthy; the node
+                           # records fewer streams at 720p on 2.4 GHz Wi-Fi, so `always` keeps quality while the Mac is on)
 live:
   # user 2026-11-19: only clip streamers who are actually playing GTA 6 (Twitch/Kick category, YouTube title).
   gta6_only:

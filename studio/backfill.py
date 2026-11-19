@@ -18,6 +18,9 @@ from .detect.chat import ChatDetector
 from .ingest import game as gta6
 from .ingest import live as vid
 
+REMOTE = DATA / "remote"   # files from capture nodes (Windows PC), synced by Syncthing: remote/<node>/chat, /outbox
+DUP_S = 3.0                # the same user + message within this many seconds = one message logged by two machines
+
 
 def _ts(s) -> float:
     if isinstance(s, (int, float)):
@@ -29,9 +32,14 @@ def _ts(s) -> float:
 def streams() -> dict[str, list[dict]]:
     """channel -> streams seen by vodwatch (newest info per stream start)."""
     out: dict[str, dict] = {}
-    p = DATA / "vods.jsonl"
-    for ln in (p.read_text().splitlines() if p.exists() else []):
-        r = json.loads(ln)
+    lines = []
+    for p in [DATA / "vods.jsonl", *sorted(REMOTE.glob("*/outbox/vods.jsonl"))]:
+        lines += p.read_text().splitlines() if p.exists() else []
+    for ln in lines:
+        try:
+            r = json.loads(ln)
+        except ValueError:   # a line still being synced
+            continue
         if "error" in r or not r.get("start"):
             continue
         out[(r["channel"].lower(), str(r["start"]))] = {**r, "t0": _ts(r["start"])}
@@ -43,21 +51,50 @@ def streams() -> dict[str, list[dict]]:
 
 def chat_files(ch: str, platform: str) -> list[Path]:
     pre = {"kick": f"kick-{ch}", "youtube": f"yt-{ch}"}.get(platform, ch)
-    return sorted((DATA / "chat").glob(f"{pre}-2*.jsonl"))
+    return sorted((DATA / "chat").glob(f"{pre}-2*.jsonl")) + sorted(REMOTE.glob(f"*/chat/{pre}-2*.jsonl"))
 
 
-def spike_groups(ch: str, platform: str, since: float, until: float, L: dict) -> list[dict]:
-    det = ChatDetector(L["chat"])
+def read_chat(ch: str, platform: str, a: float, b: float) -> list[tuple[float, str, str]]:
+    """(t, user, message) in [a, b] from every machine's chat files, sorted. Two machines log the same message with
+    slightly different receive times, so the same user + message within DUP_S seconds is kept once."""
     msgs = []
     for f in chat_files(ch, platform):
         for ln in f.read_text().splitlines():
             try:
                 m = json.loads(ln)
-            except ValueError:
+                t = float(m["t"])
+            except (ValueError, KeyError, TypeError):
                 continue
-            if since - 900 <= m["t"] <= until:   # 15 min early so the baseline is warm at `since`
-                msgs.append((m["t"], m["m"]))
+            if a <= t <= b:
+                msgs.append((t, str(m.get("u", "")), str(m.get("m", ""))))
     msgs.sort()
+    out, last = [], {}
+    for t, u, m in msgs:
+        k = (u, m)
+        if k in last and t - last[k] <= DUP_S:
+            continue
+        last[k] = t
+        out.append((t, u, m))
+    return out
+
+
+def remote_moments(ch: str) -> list[float]:
+    """Spike times of moments a capture node already saved video for (its .json lands before the video)."""
+    out = []
+    for j in REMOTE.glob(f"*/outbox/moments/*-{ch}-*.json"):
+        try:
+            m = json.loads(j.read_text())
+        except (OSError, ValueError):
+            continue
+        if m.get("channel", "").lower() == ch.lower():
+            out.append(float(m["spike_t"]))
+    return out
+
+
+def spike_groups(ch: str, platform: str, since: float, until: float, L: dict) -> list[dict]:
+    det = ChatDetector(L["chat"])
+    # 15 min early so the baseline is warm at `since`
+    msgs = [(t, m) for t, _, m in read_chat(ch, platform, since - 900, until)]
     groups, cur, last_t = [], None, None
     for t, text in msgs:
         if last_t is not None and t - last_t > 600:   # chat gap (offline / lost connection): restart the baseline
@@ -78,7 +115,8 @@ def spike_groups(ch: str, platform: str, since: float, until: float, L: dict) ->
 def done_ranges(con, platform: str, ch: str) -> list[tuple[float, float]]:
     base = vid.stream_url(platform, ch) + "#live="
     rows = con.execute("SELECT url FROM sources WHERE url LIKE ?", (base + "%",)).fetchall()
-    return [(float(r["url"].split("#live=")[1]),) * 2 for r in rows]
+    # moments a capture node (Windows PC) already has video for count as done: `studio import` brings them in
+    return [(float(r["url"].split("#live=")[1]),) * 2 for r in rows] + [(t, t) for t in remote_moments(ch)]
 
 
 def hls_url(s: dict, quality: str) -> str:
