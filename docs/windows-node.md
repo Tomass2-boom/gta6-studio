@@ -189,6 +189,8 @@ Windows Syncthing device ID: `I5CL7JR-IWBEQDT-W3EQ2OS-IKLORAF-WBTQFSB-2I2P73O-CT
 - Self-healing tests: killed chatlog -> back in 13 s; killed the supervisor -> children died with it (job object), the
   scheduler had a new supervisor up 40 s later, the gap is in `coverage-*.jsonl`; internet blocked for 2 min -> detected in
   6 s, no restart loop, `chat_ok: []` for those minutes, all channels back within seconds.
+- Lid-closed test (user closed the lid about 20 min, plugged in, Wi-Fi): over 45 min of coverage there is no gap > 90 s, all 27 chat
+  connections stayed up every minute, no sleep/wake event in the System log, 27 new moment pairs were written during that time.
 - Windows power/clean-up changes made (user approved): never sleep or hibernate on AC, screen off after 10 min, lid = do nothing,
   Fast Startup off, Wi-Fi power saving off, Update active hours 05:00-23:00 + no auto-restart with a user signed in, Defender
   exclusion for `data`, hourly clock sync, 15 startup entries and 5 background tasks disabled, old temp files and pip cache cleared.
@@ -203,7 +205,7 @@ Windows Syncthing device ID: `I5CL7JR-IWBEQDT-W3EQ2OS-IKLORAF-WBTQFSB-2I2P73O-CT
 - Local time zone of this PC is UTC+1 (W. Europe). Chat `t` and moment times are epoch UTC; only file names carry the local date.
 
 **Not done / known issues**
-- Lid-closed test and reboot test: see the section below when done.
+- Reboot test: not run yet (see below once done). CPU temperature under load was not measured: no sensor is readable from Windows on this laptop.
 - Streamlink warns that `--hls-duration` is deprecated (use `--stream-segmented-duration`); left alone because the Mac's streamlink
   may be older. Change it in `ingest/live.py:fetch_rewind` once both sides have a new streamlink.
 - 2.4 GHz Wi-Fi limits capture to 3 streams; a spike on a Twitch channel without a recorder uses the rewind (max 2 at once, extra
