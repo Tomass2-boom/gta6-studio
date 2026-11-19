@@ -187,3 +187,20 @@ def test_kill_tree_kills_grandchildren(tmp_path):
     time.sleep(1)
     out = subprocess.run(["tasklist", "/FI", f"PID eq {gpid}"], capture_output=True, text=True).stdout
     assert str(gpid) not in out
+
+
+@pytest.mark.parametrize("mod", ["studio.chatlog", "studio.vodwatch", "studio.node", "studio.node.supervisor",
+                                 "studio.node.health", "studio.chat.youtube", "studio.chat.kick"])
+def test_every_node_module_imports(mod):
+    """The supervisor starts these as separate processes; a syntax error only shows as 'exited with code 1'."""
+    import importlib
+    importlib.import_module(mod)
+
+
+def test_vodwatch_writes_to_the_outbox_on_the_node(tmp_path, monkeypatch):
+    from studio import vodwatch
+    monkeypatch.setattr(vodwatch, "DATA", tmp_path)
+    monkeypatch.setattr(vodwatch, "load", lambda name: {"node": {"enabled": True}})
+    assert vodwatch.out_file() == tmp_path / "outbox" / "vods.jsonl"
+    monkeypatch.setattr(vodwatch, "load", lambda name: {})
+    assert vodwatch.out_file() == tmp_path / "vods.jsonl"

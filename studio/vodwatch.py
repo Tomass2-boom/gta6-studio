@@ -95,8 +95,7 @@ def main():
                 rows += fn(arg)
             except Exception as ex:
                 rows.append({"error": f"{fn.__name__} {arg}: {type(ex).__name__} {ex}"[:200]})
-        with open(out_file(), "a", encoding="utf-8", newline="
-") as f:
+        with open(out_file(), "a", encoding="utf-8", newline="\n") as f:
             for r in rows:
                 f.write(json.dumps({"seen": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **r}) + "\n")
         for _ in range(60):      # 10 min, but keep the beat fresh
