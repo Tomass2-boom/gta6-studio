@@ -191,6 +191,12 @@ Windows Syncthing device ID: `I5CL7JR-IWBEQDT-W3EQ2OS-IKLORAF-WBTQFSB-2I2P73O-CT
   6 s, no restart loop, `chat_ok: []` for those minutes, all channels back within seconds.
 - Lid-closed test (user closed the lid about 20 min, plugged in, Wi-Fi): over 45 min of coverage there is no gap > 90 s, all 27 chat
   connections stayed up every minute, no sleep/wake event in the System log, 27 new moment pairs were written during that time.
+- Reboot test (user restarted from the Start menu): booted 23:05:01, the node supervisor was up by itself at 23:05:53 (boot trigger,
+  no one starting anything) and all four children were running again by 23:06:10; recording resumed by 23:09. The gap is in
+  `coverage-*.jsonl`. Caveat: this PC signs in automatically (explorer started 18 s after boot), so the test did not prove the node
+  starts with NOBODY signed in; the task is a SYSTEM task with an at-startup trigger, which does not depend on a sign-in.
+  The test also found two bugs, fixed in the same session: the hang check counted the downtime as chat silence and killed a
+  healthy chatlog 2 min after boot, and the first coverage line after boot trusted a chat status file from before the reboot.
 - Windows power/clean-up changes made (user approved): never sleep or hibernate on AC, screen off after 10 min, lid = do nothing,
   Fast Startup off, Wi-Fi power saving off, Update active hours 05:00-23:00 + no auto-restart with a user signed in, Defender
   exclusion for `data`, hourly clock sync, 15 startup entries and 5 background tasks disabled, old temp files and pip cache cleared.
@@ -205,7 +211,7 @@ Windows Syncthing device ID: `I5CL7JR-IWBEQDT-W3EQ2OS-IKLORAF-WBTQFSB-2I2P73O-CT
 - Local time zone of this PC is UTC+1 (W. Europe). Chat `t` and moment times are epoch UTC; only file names carry the local date.
 
 **Not done / known issues**
-- Reboot test: not run yet (see below once done). CPU temperature under load was not measured: no sensor is readable from Windows on this laptop.
+- CPU temperature under load was not measured: no sensor is readable from Windows on this laptop.
 - Streamlink warns that `--hls-duration` is deprecated (use `--stream-segmented-duration`); left alone because the Mac's streamlink
   may be older. Change it in `ingest/live.py:fetch_rewind` once both sides have a new streamlink.
 - 2.4 GHz Wi-Fi limits capture to 3 streams; a spike on a Twitch channel without a recorder uses the rewind (max 2 at once, extra
