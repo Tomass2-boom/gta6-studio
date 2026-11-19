@@ -51,7 +51,12 @@ def alive(pid: int | None) -> bool:
         done, _ = os.waitpid(pid, os.WNOHANG)
         return done == 0
     except ChildProcessError:
-        return True
+        # someone else's child (e.g. the watchdog's): a zombie there is finished too
+        try:
+            st = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True).stdout
+        except OSError:
+            return True
+        return bool(st.strip()) and not st.strip().startswith("Z")
 
 
 def _default_sigint():

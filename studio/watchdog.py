@@ -34,6 +34,7 @@ CRASHES_FOR_FALLBACK = 3
 CRASH_WINDOW_S = 900
 FALLBACK_RETRY_S = 300
 HEALTHY_S = 600
+SLEEP_GAP_S = 300      # a tick this late means the Mac was asleep (lid shut, bag)
 APP = DATA / "app"
 
 
@@ -158,6 +159,26 @@ class Watchdog:
         self.seen_pid: int | None = None
         self.pid_since = time.time()
         self.gap_pending: tuple[float, float] | None = None
+        self.sleep_fill_at: float | None = None
+
+    def slept(self, a: float, b: float):
+        """The Mac slept from a to b. If chat was being saved (live or chat-only logging), save the stretch as a gap
+        and clip it from replay chat once the network is back."""
+        if not (live_pids() or runner.status("chatlog").get("running")):
+            return
+        add_gap(a, b)
+        self.sleep_fill_at = b + 720   # after vodwatch (every 10 min) has seen streams that started meanwhile
+        log(f"Mac was asleep {datetime.fromtimestamp(a):%H:%M}-{datetime.fromtimestamp(b):%H:%M}: "
+            "saved as a gap, fill-gaps starts in 12 min")
+
+    def sleep_fill(self, now: float):
+        if self.sleep_fill_at and now >= self.sleep_fill_at:
+            if runner.status("fillgaps").get("running"):
+                self.sleep_fill_at = now + 300   # one at a time; try again when it is done
+                return
+            self.sleep_fill_at = None
+            start_job("fillgaps", ["uv", "run", "studio", "fill-gaps"], "Fill missed stretch")
+            log("started `studio fill-gaps` for the sleep stretch")
 
     def tick(self):
         now = time.time()
@@ -230,8 +251,14 @@ def main():
     pf.write_text(str(os.getpid()))
     log("watchdog started")
     w = Watchdog()
+    last = time.time()
     while True:
         try:
+            now = time.time()
+            if now - last > SLEEP_GAP_S:
+                w.slept(last, now)
+            last = now
+            w.sleep_fill(now)
             w.tick()
             ensure_side_services()
         except Exception as e:   # the watchdog itself must never die
