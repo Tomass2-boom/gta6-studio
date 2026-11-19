@@ -25,8 +25,16 @@ if (-not (Test-Path $py)) { Write-Host "Missing $py : run 'uv sync' in $repo fir
 Step 'Fast Startup off' { Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' HiberbootEnabled 0 -Type DWord }
 
 Step 'Wi-Fi power saving off' {
-  Get-NetAdapter -Physical | Where-Object { $_.PhysicalMediaType -match '802.11|Native' -or $_.Name -match 'Wi-?Fi|WLAN' } | ForEach-Object {
-    Set-NetAdapterPowerManagement -Name $_.Name -AllowComputerToTurnOffDevice Disabled -ErrorAction Stop } }
+  # The "allow the computer to turn off this device" box is bit 0x10 of PnPCapabilities in the adapter's class key
+  # (no PowerShell cmdlet sets it). 24 = 0x18 = box unticked, wake-on-magic-packet box left as it was.
+  $wifi = Get-NetAdapter -Physical | Where-Object { $_.PhysicalMediaType -match '802.11|Native' -or $_.Name -match 'Wi-?Fi|WLAN' }
+  foreach ($n in $wifi) {
+    $key = Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e972-e325-11ce-bfc1-08002be10318}' -ErrorAction SilentlyContinue |
+           Where-Object { (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).NetCfgInstanceId -eq $n.InterfaceGuid }
+    if (-not $key) { throw "class key for $($n.Name) not found" }
+    Set-ItemProperty $key.PSPath PnPCapabilities 24 -Type DWord
+    Restart-NetAdapter -Name $n.Name      # a few seconds offline; chat readers reconnect by themselves
+  } }
 
 Step 'Windows Update active hours and no auto-restart' {
   $ux = 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings'

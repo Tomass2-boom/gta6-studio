@@ -75,7 +75,9 @@ def atomic_write(path: Path, text: str):
 
 def git_sha() -> str:
     try:
-        return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True,
+        # safe.directory: the boot task runs as SYSTEM, git refuses a repo owned by another user without it
+        return subprocess.run(["git", "-c", f"safe.directory={ROOT.as_posix()}", "rev-parse", "--short", "HEAD"],
+                              cwd=ROOT, capture_output=True, text=True,
                               timeout=10, creationflags=NO_WINDOW).stdout.strip() or "?"
     except Exception:
         return "?"
@@ -298,6 +300,7 @@ class Node:
         env = {**os.environ, "PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1"}
         extra = [str(Path(p)) for p in self.c["extra_path"]]
         env["PATH"] = os.pathsep.join(extra + [env.get("PATH", "")])
+        os.environ["PATH"] = env["PATH"]        # the supervisor itself calls git / curl too
         self.env = env
         py = sys.executable
         self.children = [
