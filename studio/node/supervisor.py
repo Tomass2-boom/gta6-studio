@@ -369,6 +369,11 @@ class Node:
                     if is_online != self.was_online:
                         log.warning("internet %s", "back" if is_online else "LOST: waiting, coverage will show a hole")
                         self.was_online = is_online
+                req = APP / "restart.request"          # `python -m studio.node restart`: no admin rights needed
+                if req.exists():
+                    req.unlink(missing_ok=True)
+                    log.warning("restart requested: stopping; Task Scheduler starts a fresh supervisor within 5 min")
+                    break
                 for ch in self.children:
                     ch.tick(now, is_online)
                 if now - self.last_hb >= self.c["hb_s"]:

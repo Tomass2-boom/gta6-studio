@@ -1,11 +1,13 @@
 """python -m studio.node            run the supervisor (what the boot task runs)
 python -m studio.node health     one health check
-python -m studio.node status     print the heartbeat and the state of the children's status files"""
+python -m studio.node status     print the heartbeat and the state of the children's status files
+python -m studio.node restart    ask the running supervisor to stop (Task Scheduler starts a fresh one within 5 min,
+                                 with new code and settings); works without admin rights even though it runs as SYSTEM"""
 import json
 import sys
 import time
 
-from .supervisor import OUT, main as run_supervisor
+from .supervisor import APP, OUT, main as run_supervisor
 
 
 def status() -> int:
@@ -26,4 +28,9 @@ if __name__ == "__main__":
     if cmd == "health":
         from .health import main as health_main
         sys.exit(health_main())
+    if cmd == "restart":
+        APP.mkdir(parents=True, exist_ok=True)
+        (APP / "restart.request").write_text(str(time.time()))
+        print("restart requested")
+        sys.exit(0)
     sys.exit(status() if cmd == "status" else run_supervisor())
