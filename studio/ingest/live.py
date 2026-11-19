@@ -5,7 +5,9 @@ wall-clock start, so a chat spike maps straight to chunks, and Twitch ad gaps sh
 Tier B: on a spike, `streamlink --hls-live-restart` takes Twitch's rewind (~30-50 s, measured 2026-11-17)
 and keeps recording forward for the rest of the window.
 """
+import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -27,17 +29,34 @@ def start_recording(platform: str, channel: str, chunk_s: int, quality: str = "b
     d.mkdir(parents=True, exist_ok=True)
     ff = tools()[0]
     low = "--twitch-low-latency " if platform == "twitch" else ""
-    cmd = (f'streamlink -O {low}"{stream_url(platform, channel)}" "{quality}" 2>/dev/null | '
+    cmd = (f'streamlink -O {low}"{stream_url(platform, channel)}" "{quality}" 2>{os.devnull} | '
            f'"{ff}" -v error -i - -c copy -f segment -segment_time {chunk_s} -strftime 1 '
-           f'-reset_timestamps 1 "{d}/%s.ts"')
+           f'-reset_timestamps 1 "{d}/{SEG_NAME}.ts"')
+    # Windows: os.devnull is NUL for the cmd.exe shell above; no console window; the node's job object ends the tree
     return subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                            start_new_session=True)
+                            start_new_session=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+SEG_NAME = "%Y%m%d%H%M%S" if sys.platform == "win32" else "%s"   # Windows ffmpeg's strftime has no %s (epoch)
+
+
+def chunk_time(stem: str) -> float | None:
+    """Wall-clock start of a chunk from its file name: epoch seconds (macOS/Linux, `%s`) or YYYYmmddHHMMSS in local
+    time (Windows). None for anything else."""
+    if not stem.isdigit():
+        return None
+    if len(stem) == 14:
+        try:
+            return time.mktime(time.strptime(stem, "%Y%m%d%H%M%S"))
+        except ValueError:
+            return None
+    return float(stem)
 
 
 def chunks(channel: str, t0: float, t1: float, chunk_s: int) -> list[tuple[float, Path]]:
     """Chunks whose time range touches [t0, t1], sorted. The newest chunk is still being written: skip it."""
     d = RAW / channel
-    allc = sorted((float(p.stem), p) for p in d.glob("*.ts") if p.stem.isdigit()) if d.exists() else []
+    allc = sorted((chunk_time(p.stem), p) for p in d.glob("*.ts") if chunk_time(p.stem) is not None) if d.exists() else []
     allc = allc[:-1] if allc and time.time() - allc[-1][0] < chunk_s * 1.5 else allc
     return [(t, p) for t, p in allc if t + chunk_s >= t0 and t <= t1]
 
@@ -102,7 +121,7 @@ def cut_from_recording(channel: str, t0: float, t1: float, spike_t: float, out: 
                            f"slow for the recordings: lower live.quality)")
     out.parent.mkdir(parents=True, exist_ok=True)
     lst = out.with_suffix(".txt")
-    lst.write_text("".join(f"file '{p}'\n" for _, p in cs))
+    lst.write_text("".join(f"file '{p.as_posix()}'\n" for _, p in cs))     # as_posix: ffmpeg's concat list eats backslashes
     subprocess.run([tools()[0], "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy",
                     str(out)], check=True)
     lst.unlink()

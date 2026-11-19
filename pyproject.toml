@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 dependencies = [
     "pyyaml",
     "requests",
-    "mlx-whisper",
+    "mlx-whisper; sys_platform == 'darwin'",
     "typer",
     "python-dotenv",
     "numpy>=2.4.6",

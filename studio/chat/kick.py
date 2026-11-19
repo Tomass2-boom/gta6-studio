@@ -10,6 +10,7 @@ import time
 
 import websockets
 
+from . import status
 from .twitch import _save
 
 PUSHER_KEY = "34bf7a0ff419a2a775b9"
@@ -21,7 +22,7 @@ def lookup_chatroom(slug: str) -> int | None:
     """Chatroom id from Kick's API. curl, not Python: Kick answers 403 to Python's TLS fingerprint."""
     try:
         r = subprocess.run(["curl", "-s", "-m", "15", "-A", "Mozilla/5.0", f"https://kick.com/api/v2/channels/{slug}"],
-                           capture_output=True, text=True, timeout=20)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20)
         return int(json.loads(r.stdout)["chatroom"]["id"])
     except Exception:
         return None
@@ -48,6 +49,7 @@ async def read_one(channel: str, room: int, on_message, log=None, save_chat=True
                 await ws.send(json.dumps({"event": "pusher:subscribe",
                                           "data": {"auth": "", "channel": f"chatrooms.{room}.v2"}}))
                 delay = 2
+                status.mark(channel, True)
                 while True:
                     frame = await asyncio.wait_for(ws.recv(), timeout=180)
                     if '"pusher:ping"' in frame:
@@ -62,6 +64,7 @@ async def read_one(channel: str, room: int, on_message, log=None, save_chat=True
                             _save(f"kick-{channel}", ts, m[0], m[1])
                         on_message(channel, ts, m[0], m[1])
         except Exception as e:
+            status.mark(channel, False)
             if log:
                 log.warning("%s: Kick chat connection lost (%s: %s); retry in %ds", channel, type(e).__name__,
                             str(e)[:120], delay)

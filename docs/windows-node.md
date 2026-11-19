@@ -170,6 +170,59 @@ the override file below).
 
 ## Status
 
+### Windows session, 2026-11-19 (branch `windows-node`)
+
+**PC:** Acer Nitro AN515-55 laptop, i5-10300H, 32 GB, Windows 11 Home. Plugged in, lid closed, Wi-Fi. The W1 survey found
+2.4 GHz 802.11n at about 19-25 Mbps (the Mac's line is 109 Mbps), so capture is limited to `node.max_streams: 3` streams at
+720p60 (about 3.5 Mbps each; measured about 11 Mbps total with 3 recorded streams plus chat). With Ethernet or 5 GHz Wi-Fi,
+raise `max_streams` and `live.quality` in `config/settings.local.yaml`.
+Windows Syncthing device ID: `I5CL7JR-IWBEQDT-W3EQ2OS-IKLORAF-WBTQFSB-2I2P73O-CTNCF4O-XNJSHAM`. Paired with the Mac.
+
+**What works (tested for real)**
+- W1-W5 phase 1: `studio.chatlog` (27 channels, chat files grow) and `studio.vodwatch` (`outbox/vods.jsonl`) under the
+  supervisor `python -m studio.node`; Syncthing runs as its child, two Send Only folders `gta6-chat`, `gta6-outbox`.
+- W6 phase 2: `studio.node.capture` (capture-only). 30 min rehearsal: 94 spikes, 19 complete moment pairs in
+  `outbox/moments/` (Twitch and Kick, Tier A cut from the rolling recording and Tier B from the Twitch rewind), 6 spikes
+  skipped by the GTA 6 filter, no `.part` left behind, 1.9 GB raw video at the end (budget 60 GB, `raw_keep_h: 3`).
+- Boot: Task Scheduler task `GTA6Node` (as SYSTEM, no login, at boot and every 5 min, a second copy exits on the lock) and
+  `GTA6NodeHealth` (hourly: restarts a stale supervisor, frees disk).
+- Self-healing tests: killed chatlog -> back in 13 s; killed the supervisor -> children died with it (job object), the
+  scheduler had a new supervisor up 40 s later, the gap is in `coverage-*.jsonl`; internet blocked for 2 min -> detected in
+  6 s, no restart loop, `chat_ok: []` for those minutes, all channels back within seconds.
+- Lid-closed test (user closed the lid about 20 min, plugged in, Wi-Fi): over 45 min of coverage there is no gap > 90 s, all 27 chat
+  connections stayed up every minute, no sleep/wake event in the System log, 27 new moment pairs were written during that time.
+- Reboot test (user restarted from the Start menu): booted 23:05:01, the node supervisor was up by itself at 23:05:53 (boot trigger,
+  no one starting anything) and all four children were running again by 23:06:10; recording resumed by 23:09. The gap is in
+  `coverage-*.jsonl`. Caveat: this PC signs in automatically (explorer started 18 s after boot), so the test did not prove the node
+  starts with NOBODY signed in; the task is a SYSTEM task with an at-startup trigger, which does not depend on a sign-in.
+  The test also found two bugs, fixed in the same session: the hang check counted the downtime as chat silence and killed a
+  healthy chatlog 2 min after boot, and the first coverage line after boot trusted a chat status file from before the reboot.
+- Windows power/clean-up changes made (user approved): never sleep or hibernate on AC, screen off after 10 min, lid = do nothing,
+  Fast Startup off, Wi-Fi power saving off, Update active hours 05:00-23:00 + no auto-restart with a user signed in, Defender
+  exclusion for `data`, hourly clock sync, 15 startup entries and 5 background tasks disabled, old temp files and pip cache cleared.
+
+**Contract details the Mac side should know**
+- `heartbeat.json` and `coverage-*.jsonl` list channels by plain channel name (no platform prefix). `chat_ok` = channels with a
+  live chat connection (Twitch: all joined channels while the IRC connection is up; Kick/YouTube per channel).
+- The chat folder holds `*.jsonl` only (`.stignore` hides yt-dlp scratch files). Windows never deletes chat files (a delete would
+  sync to the Mac); the outbox is trimmed after `outbox_keep_days`.
+- Windows names Tier A chunks `YYYYmmddHHMMSS.ts` (local time; ffmpeg's strftime has no `%s` there). `ingest/live.py:chunks()`
+  reads both names. Moment `t_start`/`t_end` are epoch seconds of the video.
+- Local time zone of this PC is UTC+1 (W. Europe). Chat `t` and moment times are epoch UTC; only file names carry the local date.
+
+**Not done / known issues**
+- CPU temperature under load was not measured: no sensor is readable from Windows on this laptop.
+- Streamlink warns that `--hls-duration` is deprecated (use `--stream-segmented-duration`); left alone because the Mac's streamlink
+  may be older. Change it in `ingest/live.py:fetch_rewind` once both sides have a new streamlink.
+- 2.4 GHz Wi-Fi limits capture to 3 streams; a spike on a Twitch channel without a recorder uses the rewind (max 2 at once, extra
+  ones are skipped and logged). Non-Twitch Tier A channels without a recorder cannot be recovered after the fact.
+- Not ported: the Mac watchdog; the pre-existing tests that need the Mac renderer or review runner are skipped on Windows
+  (`tests/conftest.py`).
+- A new code version needs `python -m studio.node restart` (no admin); Task Scheduler starts the fresh supervisor within 5 min.
+- Git identity of this checkout is a GitHub noreply address, so no personal email is in the public history.
+- To remove: run `schtasks /Delete /TN GTA6Node /F` and `GTA6NodeHealth` from an admin shell; startup entries can be re-enabled
+  in Task Manager > Startup apps (backup of what was disabled: `data/w2-backup.json`).
+
 (Windows and Mac sessions add notes here.)
 
 **Mac side, 2026-11-19 22:15 (M1–M5 done):** Syncthing paired, both folders Receive Only in
