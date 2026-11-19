@@ -46,6 +46,7 @@ DEFAULTS = {
     "syncthing": True,
     "extra_path": [],           # tool folders for the children's PATH (the boot task runs as SYSTEM, which lacks them)
     "capture": False,           # phase 2: also run the capture-only live mode
+    "max_streams": 3,           # Tier A streams recorded at once (W1: 2.4 GHz Wi-Fi, about 19-25 Mbps = 3 x 720p60)
 }
 log = logging.getLogger("node")
 
@@ -205,6 +206,14 @@ def vodwatch_hung(now, child):
     return f"beat {age:.0f} s old" if age > 1800 else None
 
 
+def capture_hung(now, child):
+    try:
+        age = now - float((APP / "capture.beat").read_text())
+    except (OSError, ValueError):
+        return None if now - child.started < 300 else "no beat file"
+    return f"beat {age:.0f} s old" if age > 300 else None
+
+
 # --------------------------------------------------------------------------------------------- housekeeping
 def _files(root: Path):
     return [p for p in root.rglob("*") if p.is_file()] if root.exists() else []
@@ -311,7 +320,7 @@ class Node:
         if st:
             self.children.append(Child("syncthing", st, env, None, self.job))
         if self.c["capture"]:
-            self.children.append(Child("capture", [py, "-m", "studio.node.capture"], env, None, self.job))
+            self.children.append(Child("capture", [py, "-m", "studio.node.capture"], env, capture_hung, self.job))
         self.sha = git_sha()
         self.stop_flag = False
         self.was_online = True

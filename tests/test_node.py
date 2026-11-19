@@ -204,3 +204,73 @@ def test_vodwatch_writes_to_the_outbox_on_the_node(tmp_path, monkeypatch):
     assert vodwatch.out_file() == tmp_path / "outbox" / "vods.jsonl"
     monkeypatch.setattr(vodwatch, "load", lambda name: {})
     assert vodwatch.out_file() == tmp_path / "vods.jsonl"
+
+
+# ------------------------------------------------------------------------------------------- phase 2: capture
+def test_chunk_names_epoch_and_windows_local_time(tmp_path, monkeypatch):
+    from studio.ingest import live as vid
+    assert vid.chunk_time("1795000000") == 1795000000.0
+    t = time.mktime(time.strptime("20261119213811", "%Y%m%d%H%M%S"))
+    assert vid.chunk_time("20261119213811") == t
+    assert vid.chunk_time("abc") is None and vid.chunk_time("2026111921") == 2026111921.0
+    d = tmp_path / "chan"
+    d.mkdir()
+    for n in ("20261119213811", "20261119213821", "20261119213831"):
+        (d / f"{n}.ts").write_bytes(b"x")
+    monkeypatch.setattr(vid, "RAW", tmp_path)
+    got = vid.chunks("chan", t - 5, t + 100, 10)
+    assert [round(x - t) for x, _ in got] in ([0, 10], [0, 10, 20])      # the newest chunk may still be written
+
+
+def test_chat_tail_skips_backlog_reads_new_lines_and_new_days(tmp_path):
+    from studio.node.capture import ChatTail, chat_path
+    got = []
+    chans = {"a": {"platform": "twitch"}, "b": {"platform": "kick"}}
+    day = date(2026, 11, 19)
+    pa = chat_path(tmp_path, "twitch", "a", day)
+    pa.write_text(json.dumps({"t": 1, "u": "old", "m": "history"}) + "\n", encoding="utf-8")
+    tail = ChatTail(chans, tmp_path, lambda ch, t, u, m: got.append((ch, t, u, m)))
+    assert tail.poll(day) == 0 and got == []                      # backlog at startup is not a live burst
+    with open(pa, "ab") as f:
+        f.write((json.dumps({"t": 2, "u": "u1", "m": "GTA 🔥"}, ensure_ascii=False) + "\n").encode())
+        f.write(b'{"t": 3, "u": "half')                           # a line still being written
+    assert tail.poll(day) == 1 and got == [("a", 2.0, "u1", "GTA 🔥")]
+    with open(pa, "ab") as f:
+        f.write(b'", "m": "done"}\n')
+    assert tail.poll(day) == 1 and got[-1][3] == "done"
+    pb = chat_path(tmp_path, "kick", "b", day)                    # a channel's file born after startup: from its start
+    pb.write_text(json.dumps({"t": 5, "u": "k", "m": "hi"}) + "\n")
+    assert tail.poll(day) == 1 and got[-1][0] == "b"
+    nxt = date(2026, 11, 20)
+    chat_path(tmp_path, "twitch", "a", nxt).write_text(json.dumps({"t": 9, "u": "n", "m": "new day"}) + "\n")
+    assert tail.poll(nxt) == 1 and got[-1][3] == "new day"        # midnight rollover
+
+
+def test_choose_keeps_slots_and_fills_up():
+    from studio.node.capture import choose
+    assert choose(set(), ["a", "b", "c", "d"], 2) == {"a", "b"}
+    assert choose({"b", "c"}, ["a", "b", "c", "d"], 2) == {"b", "c"}     # incumbents inside the slack keep their slot
+    assert choose({"f"}, list("abcdef"), 2) == {"a", "b"}                # fell far below the cut: replaced
+    assert choose({"x"}, ["a"], 3) == {"a"}                              # fewer live than slots
+
+
+def test_publish_writes_part_then_mp4_then_json_last(tmp_path, monkeypatch):
+    import logging
+    from studio.node import capture as cap
+    monkeypatch.setattr(cap, "OUT", tmp_path / "outbox")
+    monkeypatch.setattr(cap, "APP", tmp_path / "app")
+    c = cap.Capture.__new__(cap.Capture)
+    c.node, c.moments = {"name": "win"}, tmp_path / "outbox" / "moments"
+    c.moments.mkdir(parents=True)
+    c.L = {"quality": "720p60,best"}
+    c.chans = {"ch1": {"name": "Ch One", "platform": "twitch", "quality": None}}
+    src = tmp_path / "cut.mp4"
+    src.write_bytes(b"video")
+    c.publish("ch1", c.chans["ch1"], src, 1_800_000_000.0, 100.0, 1_800_000_050.7, {"chat": 5.0, "meta": {}}, 15.0, 720)
+    mp4, js = c.moments / "win-ch1-1800000050.mp4", c.moments / "win-ch1-1800000050.json"
+    assert mp4.read_bytes() == b"video" and not list(c.moments.glob("*.part")) and not src.exists()
+    d = json.loads(js.read_text())
+    assert set(d) == {"id", "node", "streamer", "channel", "platform", "url", "stream_url", "t_start", "t_end", "spike_t",
+                      "signals", "signal_score", "quality", "height", "created"}
+    assert d["id"] == "win-ch1-1800000050" and d["spike_t"] == 1_800_000_050 and d["t_end"] == d["t_start"] + 100
+    assert d["quality"] == "720p60,best" and d["height"] == 720
