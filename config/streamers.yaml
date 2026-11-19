@@ -130,6 +130,8 @@ streamers:
     tier: A
     allowed: null
     note: "user 2026-11-19: really good clips; GTA 6 full playthrough, ~57k viewers"
+    clip:
+      max_len_s: 120     # his goal-driven arcs hold long on TikTok ("free the bear" 100 s 226K, "steal a plane" 177 s 492K)
   - name: Clix
     platform: twitch
     channel: clix

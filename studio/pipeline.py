@@ -44,7 +44,8 @@ def decide(con, m, segments: list[dict], src, src_path: str, lg, model: str | No
                   j_start=j["start"], j_end=j["end"], judge_model=model or cfg["judge"]["model"],
                   keywords=as_list(j.get("keywords")))
         if j.get("keep") and (j.get("score") or 0) >= cfg["clip"]["min_score"]:
-            a, b = _clamp(j["start"], j["end"], m["t_start"], m["t_end"], cfg["clip"])
+            from .config import clip_cfg
+            a, b = _clamp(j["start"], j["end"], m["t_start"], m["t_end"], clip_cfg(src["streamer"] if src else None))
             if b - a < cfg["clip"]["min_len_s"]:
                 db.fail(con, mid, f"clip too short after clamping ({b - a:.0f}s)")
                 return False

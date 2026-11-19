@@ -110,7 +110,7 @@ launch_banner:
 captions:
   font: Nunito Black      # family name inside the font file
   font_file: Nunito-Black.ttf   # in assets/fonts/
-  size: 124
+  size: 112               # user 2026-11-19: "slightly smaller, not a lot" (was 124, then 116 earlier today)
   uppercase: true
   color: FFFFFF
   outline_color: "000000"

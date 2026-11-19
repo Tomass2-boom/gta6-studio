@@ -13,9 +13,11 @@ def test_end_between_lines_only_gets_the_pad():
 
 def test_prompt_names_streamer_and_lengths_from_config():
     p = prompt("[0.0-2.0] hi", streamer="Lacy")
-    assert "The streamer is Lacy." in p and "names the streamer" in p
+    assert "The streamer is Lacy." in p and "the streamer's name" in p
     assert "no fixed length" in p and "15-30 s" in p and "up to 60 s" in p
     assert "streamer is" not in prompt("[0.0-2.0] hi")
+    # per-streamer override in streamers.yaml (ohnePixel's long goal-driven arcs)
+    assert "up to 120 s" in prompt("[0.0-2.0] hi", streamer="ohnePixel")
 
 
 def test_short_clip_is_extended_through_continuous_talk():

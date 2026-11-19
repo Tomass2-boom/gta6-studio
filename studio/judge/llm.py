@@ -13,7 +13,14 @@ Decide if this is a clip-worthy moment. KEEP these kinds:
   a vehicle, a sport, a phone, a feature, physics or damage, a menu, the character creator, the graphics)
   and reacts to it;
 - the streamer's own verdict on the game told to chat: what they like or dislike, whether it is good, bad,
-  realistic or worth the wait, how it compares to other games. These short opinions do very well.
+  realistic or worth the wait, how it compares to other games. These short opinions do very well;
+- the game acting like real life and the streamer reacting with disbelief, anger or delight (a car needs a key,
+  a club checks their age and refuses them, NPCs hear them, traffic, pumping gas, items vanish, real events
+  recreated). These are the biggest hits of all;
+- the streamer with the main characters in gameplay (Lucia or Jason: doing things for her, flirting,
+  missing her, choosing her looks with chat), as long as it is the streamer talking, not a cutscene;
+- a mini-story with a clear goal (steal a plane, free an animal, escape the police) that keeps escalating:
+  these may run long, because viewers stay to see if it works.
 DROP it if it is mostly story cutscene dialogue (characters talking the plot), story spoilers/endings,
 dead air, songs or music lyrics, technical trouble (stream, camera, cables, settings, brightness),
 or chatter that is not about the game. A big streamer reaction during a cutscene is fine only if the
@@ -34,8 +41,9 @@ Reply ONLY JSON: {{"keep": bool, "score": 1-10, "start": sec, "end": sec,
 
 GAME_RULE = "The game may be GTA 5 or GTA 6; never name the game in titles unless the transcript says so."
 TITLE_HINT = "short hook title, no clickbait lies"
-TITLE_HINT_WHO = ("short hook title in third person that names the streamer and the specific thing that "
-                  "happens, no clickbait lies")
+TITLE_HINT_WHO = ("short hook title in third person: the streamer's name, their emotion in capitals, and the exact "
+                  "thing in the game, in the form '<Name> was <EMOTION> after finding out <the exact thing from this clip>'; "
+                  "no clickbait lies")
 WHO = "\nThe streamer is {name}."
 
 LAUNCH_RULE = "Do not name the game in the title: a launch hook is put in front of it later."
@@ -156,7 +164,8 @@ def judge(segments: list[dict], model: str | None = None, tries: int = 3, launch
 
 
 def prompt(lines: str, launch: dict | None = None, streamer: str | None = None) -> str:
-    c = load("settings")["clip"]
+    from ..config import clip_cfg
+    c = clip_cfg(streamer)
     lo, hi = c.get("target_len_s", [8, 30])
     kw = dict(lines=lines, len_min=lo, len_max=hi, len_cap=c["max_len_s"],
               who=WHO.format(name=streamer) if streamer else "",
