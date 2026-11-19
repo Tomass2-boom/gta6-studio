@@ -46,20 +46,21 @@ def kick(slug):
         if v.get("is_live") or v.get("start_time", "") >= "2026-11-18":
             out.append({"platform": "kick", "channel": slug, "start": v.get("start_time"), "live": v.get("is_live"),
                         "duration_ms": v.get("duration"), "vod": v.get("source"),
+                        "game": next((c.get("name") for c in v.get("categories") or [] if c.get("name")), None),
                         "page": f"https://kick.com/{slug}/videos/{(v.get('video') or {}).get('uuid')}"})
     return out
 
 
 def youtube(handle):
-    r = subprocess.run(["yt-dlp", "--print", "%(id)s %(release_timestamp)s %(live_status)s", "--skip-download",
+    r = subprocess.run(["yt-dlp", "--print", "%(id)s %(release_timestamp)s %(live_status)s %(title)s", "--skip-download",
                         f"https://youtube.com/@{handle}/live"], capture_output=True, text=True, timeout=90)
     if not r.stdout.strip():
         return []
-    vid, ts, status = r.stdout.split()
+    vid, ts, status, *title = r.stdout.split()
     if status != "is_live":
         return []
     return [{"platform": "youtube", "channel": handle, "start": int(ts) if ts.isdigit() else None,
-             "vod": f"https://www.youtube.com/watch?v={vid}"}]
+             "vod": f"https://www.youtube.com/watch?v={vid}", "game": " ".join(title) or None}]
 
 
 def main():

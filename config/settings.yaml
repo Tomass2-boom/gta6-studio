@@ -53,10 +53,17 @@ render:
   ffmpeg: /opt/homebrew/opt/ffmpeg-full/bin/ffmpeg
   ffprobe: /opt/homebrew/opt/ffmpeg-full/bin/ffprobe
 live:
+  # user 2026-11-19: only clip streamers who are actually playing GTA 6 (Twitch/Kick category, YouTube title).
+  gta6_only:
+    enabled: true
+    unknown: allow        # platform did not say (YouTube title names no game, API hiccup): allow | skip
+    cache_s: 180          # re-ask the platform at most this often per channel
   chat:
     bin_s: 10             # chat is counted in bins of this many seconds
     burst_x: 4.0          # latest bin must be this many times the channel's own normal level (rehearsal 2026-11-17: 3.0 gave 15/h on a busy Kick chat, 4.0 gives 8/h and keeps every 6-9x spike)
     sustain_x: 1.8        # and the last 3 bins (30 s) this many times
+    per_channel:          # overrides for one channel. Huge, steady chats (drops viewers) rarely hit 4x.
+      ohnepixel: {burst_x: 2.5, sustain_x: 1.5}   # user 2026-11-19: "really good clips"; 4x gave 1 moment in 6 h, 2.5x ~26
     floor: 2.0            # baseline never below this (weighted msgs per bin), so quiet chats don't fire on 3 messages
     min_burst: 12         # and the burst must weigh at least this much
     warmup_bins: 12       # no spikes in the first 2 minutes of watching a channel

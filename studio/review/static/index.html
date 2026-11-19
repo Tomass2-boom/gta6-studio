@@ -111,6 +111,7 @@ th{color:var(--dim);font-weight:500}
         <option value="ai">Sort: AI score (high to low)</option><option value="you">Sort: Your score (high to low)</option>
         <option value="long">Sort: Longest first</option><option value="short">Sort: Shortest first</option>
       </select>
+      <select id="streamerBy" onchange="try{localStorage.streamerBy=this.value}catch(e){} loadClips()" style="margin-bottom:10px"><option value="">Streamer: All</option></select>
       <div class="clist" id="clist"></div>
     </div>
     <div id="detail" class="card"><p class="dim">Pick a clip on the left.</p></div>
@@ -218,9 +219,16 @@ async function loadClips() {
   if (tab !== "clips" && fresh) { const b = $("#newBadge"); b.textContent = fresh; b.style.display = "inline"; }
   if (tab === "clips") seenIds = new Set(allIds);
   const now = Date.now() / 1000;
+  const sb = $("#streamerBy"); let want = sb.value;
+  if (!want) { try { want = localStorage.streamerBy || ""; } catch (e) {} }
+  const counts = {}; r.clips.forEach(c => { const n = c.streamer || "?"; counts[n] = (counts[n] || 0) + 1; });
+  const names = Object.keys(counts).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  if (want && !counts[want]) want = "";
+  sb.innerHTML = '<option value="">Streamer: All (' + r.clips.length + ')</option>' + names.map(n => `<option value="${esc(n)}">${esc(n)} (${counts[n]})</option>`).join("");
+  sb.value = want;
   const len = c => (c.j_end != null && c.j_start != null) ? c.j_end - c.j_start : 0;
   const key = {new: c => c.mtime, old: c => -c.mtime, ai: c => c.score || 0, you: c => c.grade || 0, long: len, short: c => -len(c)}[$("#sortBy").value] || (c => c.mtime);
-  const sorted = [...($("#sortBy").value === "review" ? r.clips.filter(c => c.remade || c.unrated) : r.clips)].sort((a, b) => key(b) - key(a) || b.mtime - a.mtime);
+  const sorted = [...r.clips.filter(c => (!want || (c.streamer || "?") === want) && ($("#sortBy").value !== "review" || c.remade || c.unrated))].sort((a, b) => key(b) - key(a) || b.mtime - a.mtime);
   $("#clist").innerHTML = sorted.map(c => `<div class="citem ${c.id === selId ? "sel" : ""}" onclick="openClip(${c.id})">
     <b>${esc(c.title || c.name)}</b><span class="dim" style="font-size:13px">${esc(c.streamer)} · ${new Date(c.mtime * 1000).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"})}</span>
     <div class="tags">${now - c.mtime < 1800 ? '<span class="tag new">NEW</span>' : ""}${c.remade ? '<span class="tag new" style="background:#b45309">REMADE · review</span>' : c.unrated ? '<span class="tag new" style="background:#1d4ed8">TO RATE</span>' : ""}${c.score ? `<span class="tag">AI ${c.score}/10</span>` : ""}${c.grade ? `<span class="tag grade">You ${c.grade}/10</span>` : ""}${c.posted.map(p => `<span class="tag posted">✓ ${p}</span>`).join("")}</div></div>`).join("") || ($("#sortBy").value === "review" ? '<p class="dim">Nothing waiting for your review.</p>' : '<p class="dim">No clips yet. Start clipping, or make clips from a link in Tools.</p>');
@@ -238,7 +246,7 @@ async function openClip(id) {
     <div class="field"><label>Title</label><div class="copybox"><div class="txt">${esc(c.title)}</div><button class="btn primary" onclick="copy('title')">Copy</button></div></div>
     <div class="field"><label>Description</label><div class="copybox"><div class="txt">${esc(c.description)}</div><button class="btn primary" onclick="copy('description')">Copy</button></div></div>
     <div class="field"><label>Hashtags</label><div class="copybox"><div class="txt">${esc(c.hashtags)}</div><button class="btn primary" onclick="copy('hashtags')">Copy</button></div></div>
-    <div class="btns" style="margin-bottom:16px"><button class="btn" onclick="finder()">📁 Show in Finder</button><button class="btn" onclick="rerender()">🔄 Re-make clip</button></div>
+    <div class="btns" style="margin-bottom:16px"><button class="btn" onclick="finder()">📁 Show in Finder</button><button class="btn" onclick="rerender()">🔄 Re-make clip</button><button class="btn" onclick="toPhone()">📲 Send to my phone</button></div>
     <div class="field"><label>I posted it on</label><div class="btns">${Object.keys(PL).map(p => `<button class="toggle ${c.posted.includes(p) ? "on" : ""}" onclick="posted('${p}',this)">${c.posted.includes(p) ? "✓ " : ""}${PL[p]}</button>`).join("")}</div></div>
     <div class="field"><label>My grade (1 = bad, 10 = great)</label><div class="grade">${[...Array(10)].map((_, i) => `<button class="${c.grade === i + 1 ? "on" : ""}" onclick="grade(${i + 1})">${i + 1}</button>`).join("")}</div></div>
     <div class="field"><label>What I liked / didn't like</label><textarea id="notes" placeholder="e.g. great hook, but the ending drags; sound effect too quiet">${esc(c.notes)}</textarea>
@@ -258,6 +266,8 @@ function markText(m) { return m == null ? "No hand-placed marks." : m.length ===
 async function copy(field) { const r = await api("/api/copy", {text: cur[field]}); if (!fail(r)) toast("Copied " + field + "!"); }
 async function finder() { fail(await api(`/api/clips/${cur.id}/finder`, {})); }
 async function rerender() { const r = await api(`/api/clips/${cur.id}/rerender`, {}); if (!fail(r)) toast("Re-making the clip. It takes a minute or two; progress is in Tools.", 4000); }
+async function toPhone() { const r = await api(`/api/clips/${cur.id}/phone`, {}); if (fail(r)) return;
+  toast(r.plugged === false ? "Queued in PhoneDrop, but no phone is plugged in. Plug it in, then press Retry there." : "Sending to your phone through PhoneDrop…", r.plugged === false ? 5000 : 2500); }
 async function posted(p, el) { const on = !cur.posted.includes(p); const r = await api(`/api/clips/${cur.id}/posted`, {platform: p, on}); if (fail(r)) return;
   cur.posted = on ? [...cur.posted, p] : cur.posted.filter(x => x !== p); el.classList.toggle("on", on); el.textContent = (on ? "✓ " : "") + PL[p]; loadClips(); }
 async function grade(n) { const r = await api(`/api/clips/${cur.id}/grade`, {score: n}); if (fail(r)) return; cur.grade = n;

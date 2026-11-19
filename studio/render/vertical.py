@@ -77,6 +77,17 @@ def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, fo
             return _b_or_c(style, src, a, b, w, h, how)
         tl = L.cam_timeline(src["path"], a, b, cam, w, h)
         share = sum(tl) / max(1, len(tl))
+        if share < style["layout_a"]["cam_presence"] and not how.startswith("face cut-out"):
+            # The stored box (streamers.yaml or cache) is not where the cam is in this clip: streamers move
+            # their cam (xQc, Kai, N3on on 2026-11-18; Clix moved his 80 px down on 2026-11-19). Look for it
+            # again on this clip BEFORE the face check below: the face is often still inside a stale box, so
+            # the face check passes and the panel shows a strip of game next to the face (Clix 975/984).
+            cam2, how2 = FC.auto_box(src["streamer"], src["path"], a, b, w, h, fresh=True)
+            if cam2 and tuple(cam2) != tuple(cam):
+                tl2 = L.cam_timeline(src["path"], a, b, cam2, w, h)
+                share2 = sum(tl2) / max(1, len(tl2))
+                if share2 > share:
+                    cam, tl, share, how = cam2, tl2, share2, f"{how2} (stored box seen in only {share:.0%})"
         if share < style["layout_a"]["cam_presence"] and how.startswith(("from streamers.yaml", "face cut-out")):
             # Borderless cam (green-screen cut-out, e.g. IShowSpeed): no edge to find, so look for the face instead.
             from . import facetrack as T
@@ -84,15 +95,6 @@ def choose_layout(style: dict, src: dict, a: float, b: float, w: int, h: int, fo
             tl = [f is not None for f in best]
             share = sum(tl) / max(1, len(tl))
             how += ", face check (no cam border)"
-        if share < style["layout_a"]["cam_presence"] and not how.startswith("face cut-out"):
-            # The stored box (streamers.yaml or cache) is not where the cam is in this clip: streamers move
-            # their cam (xQc, Kai, N3on on 2026-11-18). Look for it again on this clip before giving up on A.
-            cam2, how2 = FC.auto_box(src["streamer"], src["path"], a, b, w, h, fresh=True)
-            if cam2 and tuple(cam2) != tuple(cam):
-                tl2 = L.cam_timeline(src["path"], a, b, cam2, w, h)
-                share2 = sum(tl2) / max(1, len(tl2))
-                if share2 > share:
-                    cam, tl, share, how = cam2, tl2, share2, f"{how2} (stored box seen in only {share:.0%})"
         if want == "AUTO" and share < style["layout_a"]["cam_presence"]:
             return _b_or_c(style, src, a, b, w, h, f"cam seen in only {share:.0%} of the clip")
         off = L.off_ranges(tl, style["layout_a"]["switch_min_s"])
@@ -202,6 +204,11 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
     path = dest / f"{name}.mp4"
     sfx_cfg, mk_cfg = style.get("sound_effects") or {}, style.get("marks") or {}
     with tempfile.TemporaryDirectory() as d:
+        if lay == "C" and style["layout_c"].get("crop_black_bars", True):
+            bars = L.letterbox(src["path"], a, b, w, h)
+            if bars != (0, h):
+                style = {**style, "_bars": bars}
+                info["bars"] = bars
         track = _track(style, src, a, b, w, h, lay, cam, off, d, info)
         graph, geo = (L.build_switching(style, w, h, cam, off, track) if off
                       else L.build(lay, style, w, h, cam, track))
@@ -230,7 +237,7 @@ def render(src: dict, a: float, b: float, words: list[dict], keywords: list[str]
         if r.returncode:
             raise RuntimeError(f"ffmpeg failed: {r.stderr[-800:]}")
         os.replace(tmp, path)
-    extra = {k: info[k] for k in ("checks", "sfx", "marks", "face_track") if k in info}
+    extra = {k: info[k] for k in ("checks", "sfx", "marks", "face_track", "bars") if k in info}
     return str(path), lay, note + (f"; extras {extra}" if extra else "")
 
 

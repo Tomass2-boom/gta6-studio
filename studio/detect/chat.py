@@ -90,7 +90,7 @@ class ChatDetector:
         return out
 
     def _eval(self, name: str, st: _Chan, i: int) -> Spike | None:
-        c = self.c
+        c = {**self.c, **((self.c.get("per_channel") or {}).get(name) or {})}   # huge steady chats need lower x
         if i - st.first_idx < c["warmup_bins"]:
             return None
         w = lambda k: st.bins.get(k, 0)

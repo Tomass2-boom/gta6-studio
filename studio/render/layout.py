@@ -127,6 +127,31 @@ def build_switching(style: dict, src_w: int, src_h: int, cam, ranges, track: dic
     return g, {**geo, "caption_y_b": geo_b["caption_y"], "b_ranges": ranges, "game_b": geo_b["game"]}
 
 
+def letterbox(video: str, a: float, b: float, w: int, h: int, n: int = 6) -> tuple[int, int]:
+    """(y0, height) of the picture without its black top/bottom bars (rows black in every sampled frame; a
+    streamer logo may sit on the bar, so 75% of a row being dark counts as black). (0, h) when no bars."""
+    sw, sh = 160, max(2, round(160 * h / w))
+    step = max(0.5, (b - a) / n)
+    raw = subprocess.run([tools()[0], "-v", "error", "-ss", f"{a:.3f}", "-t", f"{b - a:.3f}", "-i", video,
+                          "-vf", f"fps=1/{step:.3f},scale={sw}:{sh}", "-frames:v", str(n), "-f", "rawvideo",
+                          "-pix_fmt", "gray", "-"], capture_output=True, check=True).stdout
+    k = len(raw) // (sw * sh)
+    if not k:
+        return 0, h
+    f = np.frombuffer(raw[: k * sw * sh], np.uint8).reshape(k, sh, sw)
+    dark = (np.percentile(f, 75, axis=2) < 24).all(axis=0)
+    top = 0
+    while top < sh // 3 and dark[top]:
+        top += 1
+    bot = 0
+    while bot < sh // 3 and dark[sh - 1 - bot]:
+        bot += 1
+    y0 = round(top * h / sh) + 2 if top else 0      # +2: the soft edge of the bar
+    y1 = h - (round(bot * h / sh) + 2 if bot else 0)
+    y0, y1 = y0 // 2 * 2, y1 // 2 * 2
+    return (y0, y1 - y0) if (y0 or y1 < h) else (0, h)
+
+
 def _crop(name: str | None, cmds: str | None) -> str:
     """'crop' or, when a sendcmd script drives it, 'sendcmd=f=...,crop@name'."""
     if not cmds:
@@ -179,15 +204,32 @@ def build(layout: str, style: dict, src_w: int, src_h: int, cam=None, track: dic
                    "game_crop": (gw, gh)}
     if layout == "C":
         C = style["layout_c"]
-        vh = round(W * src_h / src_w) // 2 * 2
+        bars = style.get("_bars")
+        y0, sh = bars if bars else (0, src_h)       # picture rows without the black bars
+        ph = C.get("picture_height")                # share of the frame height; set = zoom in (crop the sides)
+        if ph:
+            vh = round(ph * H) // 2 * 2
+            cw = min(src_w, round(sh * W / vh)) // 2 * 2
+            cx = round((src_w - cw) * C.get("focus_x", 0.5)) // 2 * 2
+            fg_in = f"crop={cw}:{sh}:{cx}:{y0},scale={W}:{vh}:flags=lanczos,setsar=1"
+            game = (cx, y0, cw, sh)
+        else:
+            vh = round(W * sh / src_w) // 2 * 2
+            fg_in = f"crop={src_w}:{sh}:0:{y0},scale={W}:{vh}:flags=lanczos,setsar=1"
+            game = (0, y0, src_w, sh)
         top = round(C["video_center_y"] * H - vh / 2)
         if C["background"] == "blur":
             bg = (f"[s1]scale=-2:{H},crop={W}:{H},boxblur={C['blur']}:2,eq=brightness=-0.15[bg]")
         else:
             bg = f"[s1]scale={W}:{H},drawbox=c=black:t=fill[bg]"
-        g = (f"[0:v]split=2[s1][s2];{bg};[s2]scale={W}:{vh}:flags=lanczos,setsar=1[fg];"
+        g = (f"[0:v]split=2[s1][s2];{bg};[s2]{fg_in}[fg];"
              f"[bg][fg]overlay=0:{top}[base]")
         cap = style["captions"]
-        y_cap = top + vh + cap["size"] * 0.9 if cap["position_c"] == "below_video" else float(cap["position_c"]) * H
-        return g, {"caption_y": y_cap, "video_top": top, "game": ((0, 0, src_w, src_h), (0, top, W, vh))}
+        if C.get("caption_in_picture"):
+            y_cap = top + vh - cap["size"] * 1.4
+        elif cap["position_c"] == "below_video":
+            y_cap = top + vh + cap["size"] * 0.9
+        else:
+            y_cap = float(cap["position_c"]) * H
+        return g, {"caption_y": y_cap, "video_top": top, "game": (game, (0, top, W, vh))}
     raise ValueError(f"unknown layout {layout}")

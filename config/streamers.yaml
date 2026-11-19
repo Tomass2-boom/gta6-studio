@@ -67,9 +67,15 @@ streamers:
   - name: Jynxzi
     platform: twitch
     channel: jynxzi
-    tier: B
+    tier: A   # recorded continuously (user 2026-11-18: wants more good clips from him)
     allowed: null
     note: "named in the 2026 GTA dataset; big English variety audience"
+  - name: zackrawrr
+    platform: twitch
+    channel: zackrawrr
+    tier: A   # 76k viewers playing GTA VI on 2026-11-18, hype train level 7 (user spotted him)
+    allowed: null
+    note: "added 2026-11-18 by the user: big live GTA VI stream"
   - name: summit1g
     platform: twitch
     channel: summit1g
@@ -118,10 +124,18 @@ streamers:
     tier: A
     allowed: null
     note: "24/7 GTA 6 marathon; his own TikTok clips hit 0.4-3M on launch day"
+  - name: ohnePixel
+    platform: twitch
+    channel: ohnepixel
+    tier: A
+    allowed: null
+    note: "user 2026-11-19: really good clips; GTA 6 full playthrough, ~57k viewers"
   - name: Clix
     platform: twitch
     channel: clix
     tier: A
+    facecam: [0, 80, 478, 269]   # measured on the GTA 6 stream 2026-11-19 (auto-detect took y=0: a strip of game sky + overlay bar above his face)
+    ref: [1920, 1080]
     allowed: null
     note: "24/7 GTA 6 marathon; @moreclixtv clips 0.1-1.2M on launch day"
   - name: Nixstah
@@ -142,4 +156,77 @@ streamers:
     tier: A
     allowed: null
     note: "YouTube GTA 6 early-access stream; his TikToks 0.8-3M on launch day"
+  # --- Added 2026-11-19 00:20 for the US unlock (Thu 05:00 UTC): big English streamers likely to go live on release. Tier B (chat-spike only), slugs unverified ---
+  - name: Ludwig
+    platform: twitch
+    channel: ludwig
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: Asmongold
+    platform: twitch
+    channel: asmongold
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: Shroud
+    platform: twitch
+    channel: shroud
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: Sodapoppin
+    platform: twitch
+    channel: sodapoppin
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: HasanAbi
+    platform: twitch
+    channel: hasanabi
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: CaseOh
+    platform: twitch
+    channel: caseoh_
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: PlaqueBoyMax
+    platform: twitch
+    channel: plaqueboymax
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: Sketch
+    platform: twitch
+    channel: sketch
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: Valkyrae
+    platform: twitch
+    channel: valkyrae
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: Tfue
+    platform: twitch
+    channel: tfue
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: Mizkif
+    platform: twitch
+    channel: mizkif
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
+  - name: Pokimane
+    platform: twitch
+    channel: pokimane
+    tier: B
+    allowed: null
+    note: "added for the US unlock; slug unchecked"
 blocklist: []

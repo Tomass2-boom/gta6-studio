@@ -114,9 +114,17 @@ def fetch_rewind(platform: str, channel: str, seconds: int, out: Path, min_len: 
     out.parent.mkdir(parents=True, exist_ok=True)
     raw = out.with_suffix(".raw.ts")
     started = time.time()
-    subprocess.run(["streamlink", "--hls-live-restart", "--hls-duration", str(seconds), *(["--twitch-low-latency"] if platform == "twitch" else []),
-                    "-o", str(raw), "-f", stream_url(platform, channel), quality],
-                   check=True, capture_output=True, timeout=seconds + 120)
+    try:
+        subprocess.run(["streamlink", "--hls-live-restart", "--hls-duration", str(seconds), *(["--twitch-low-latency"] if platform == "twitch" else []),
+                        "-o", str(raw), "-f", stream_url(platform, channel), quality],
+                       check=True, capture_output=True, text=True, timeout=seconds + 120)
+    except subprocess.CalledProcessError as e:  # keep streamlink's own reason (it was lost: "non-zero exit status")
+        raw.unlink(missing_ok=True)
+        tail = " ".join((e.stdout or "").split()[-25:] + (e.stderr or "").split()[-25:])
+        raise RuntimeError(f"rewind failed: {tail[-300:] or f'streamlink exit {e.returncode}'}") from None
+    except subprocess.TimeoutExpired:
+        raw.unlink(missing_ok=True)
+        raise RuntimeError(f"rewind timed out after {seconds + 120}s (slow internet or stream stalled)") from None
     # remux with timestamps from zero: ffprobe on the raw .ts reports a wrong duration (measured)
     subprocess.run([tools()[0], "-v", "error", "-y", "-i", str(raw), "-c", "copy", "-avoid_negative_ts",
                     "make_zero", str(out)], check=True)
@@ -130,7 +138,11 @@ def fetch_rewind(platform: str, channel: str, seconds: int, out: Path, min_len: 
 def duration(path: Path) -> float:
     r = subprocess.run([tools()[1], "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(path)],
                        capture_output=True, text=True)
-    return float(r.stdout.strip() or 0)
+    try:
+        return float(r.stdout.strip() or 0)
+    except ValueError:
+        # 'N/A': a yt-dlp cut of a live YouTube stream has no duration header (Jelly, 2026-11-19); measure packets
+        return chunk_len(path)
 
 
 def cleanup(keep_h: float):

@@ -195,6 +195,7 @@ def test_swear_words_are_masked_like_f_stars_ing():
 def test_title_box_with_one_very_long_word_does_not_hang():
     from studio.render.captions import build_ass
     st = load("style")
+    st["layout_c"]["title_box"]["enabled"] = True   # off in config since 2026-11-19; the code path stays
     geo = {"caption_y": 1500, "caption_y_b": 1500, "video_top": 656}
     ass = build_ass([], [], st, "C", geo, 5, "SUPERCALIFRAGILISTICEXPIALIDOCIOUSLY " * 2 + "NPC")
     assert "Dialogue" in ass
@@ -212,6 +213,7 @@ def test_voice_dips_under_hits_only():
 def test_long_title_shrinks_instead_of_being_cut():
     from studio.render.captions import build_ass
     st = load("style")
+    st["layout_c"]["title_box"]["enabled"] = True   # off in config since 2026-11-19; the code path stays
     geo = {"caption_y": 1500, "caption_y_b": 1500, "video_top": 656}
     ass = build_ass([], [], st, "C", geo, 5, "NPC Confrontation Escalates to Shirt Removal")
     assert "REMOVAL" in ass.upper()
@@ -256,3 +258,22 @@ def test_small_details_divider_grade_and_cutout_panel():
     _, geo = L.build("A", cut, 1920, 1080, (0, 500, 640, 580))
     cw, ch, _ = geo["cam_crop"]
     assert ch >= 570 and cw > 640  # whole cut-out height kept, panel runs on into the game
+
+
+def test_no_burned_in_title_when_title_box_off():
+    """User 2026-11-19: no title text on the video, they add their own when posting."""
+    from studio.render.captions import build_ass
+    st = load("style")
+    st["layout_c"]["title_box"]["enabled"] = False
+    st["launch_banner"]["enabled"] = False
+    geo = {"caption_y": 1500, "caption_y_b": 1500, "video_top": 656}
+    for lay in "ABC":
+        ass = build_ass([], [], st, lay, geo, 5, "GTA 6 IS ALREADY OUT: Peanut Gets Stuck")
+        assert "PEANUT" not in ass.upper()
+
+
+def test_gta6_matcher():
+    from studio.ingest.game import matches
+    assert matches("Grand Theft Auto VI") and matches("Grand Theft Auto VI (GTA)") and matches("gta 6 day 2", "youtube")
+    assert matches("Grand Theft Auto V") is False and matches("Slots & Casino") is False
+    assert matches("Just Chatting") is False and matches("LIVE NOW", "youtube") is None and matches(None) is None

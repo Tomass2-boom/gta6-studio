@@ -69,3 +69,23 @@ def transcribe(video: str, start: float, end: float) -> dict:
     segs = [s for s in best[0] if s["end"] > start and s["start"] < end]
     words = [w for w in best[1] if w["end"] > start and w["start"] < end]
     return {"text": " ".join(s["text"] for s in segs), "segments": segs, "words": words}
+
+
+def fill_missing(words: list[dict], segments: list[dict], a: float, b: float) -> list[dict]:
+    """Captions must never vanish (clip 528: Whisper skipped most of the first 30 s of a window). Where a transcript
+    segment inside [a, b] has fewer than 60% of its words timed, spread the segment's own words evenly over it."""
+    out = list(words)
+    for seg in segments:
+        if seg["end"] <= a or seg["start"] >= b:
+            continue
+        toks = seg["text"].split()
+        if not toks:
+            continue
+        inside = [w for w in out if w["start"] >= seg["start"] - 0.3 and w["end"] <= seg["end"] + 0.3]
+        if len(inside) >= 0.6 * len(toks):
+            continue
+        out = [w for w in out if w not in inside]
+        step = (seg["end"] - seg["start"]) / len(toks)
+        out += [{"word": t, "start": round(seg["start"] + i * step, 2),
+                 "end": round(seg["start"] + (i + 1) * step - 0.03, 2), "p": 0.5} for i, t in enumerate(toks)]
+    return sorted(out, key=lambda w: w["start"])

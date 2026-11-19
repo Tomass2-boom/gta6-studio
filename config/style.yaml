@@ -36,7 +36,7 @@ checks:
   min_game_width: 0.42       # the game crop must keep this share of the game's width (B keeps 32%: becomes C)
 
 layout_mix:
-  C: 0.2
+  C: 0.1   # user 2026-11-19: facecam-top (A) is best; C (no title) only as a small variant + fallback
 
 layout_a:
   cam_height: 0.45        # share of the frame height the facecam takes. Was 0.38; user 2026-11-18: "face cam bigger, game not so zoomed in" (game crop 51% -> 58% of the width)
@@ -59,10 +59,15 @@ layout_b:
   black_band_to_c: 0.15   # source has a black band this share of its height or more (multi-POV overlays) -> use C
 
 layout_c:
-  video_center_y: 0.5     # vertical centre of the 16:9 picture (share of height)
+  video_center_y: 0.5     # vertical centre of the picture (share of height)
+  picture_height: 0.46    # share of the frame height the picture fills; sides are cropped = zoomed in. 0 = whole 16:9 frame (user 2026-11-18: lines drawn under the title and under the captions)
+  focus_x: 0.5            # which part of the wide game to keep when cropping the sides
+  caption_in_picture: true   # captions sit on the lower part of the picture instead of below it
+  crop_black_bars: true   # cut the black bars some sources have at the top and bottom
   background: blur        # blur | black
   blur: 40
   title_box:
+    enabled: false        # user 2026-11-19: no burned-in title, they add their own text when posting
     style: text           # text = outlined text, no box (default) | box = white rounded box
     line_colors: [FFFFFF, FF2D2D]   # lines alternate: white, red
     outline_color: "000000"
@@ -84,7 +89,7 @@ layout_c:
 # Launch hook banner on layout A/B clips (they have no title box): "GTA 6 IS ALREADY OUT" over the top.
 # Only shows when the title starts with a launch hook (settings.yaml judge.launch). Preview 2026-11-18.
 launch_banner:
-  enabled: true       # user approved the 3.5 s version 2026-11-18; only on lower-rated clips (settings judge.launch.on_video_max_score)
+  enabled: false      # user 2026-11-19: no burned-in title/hook text at all (they add their own when posting). Was: true;      # user approved the 3.5 s version 2026-11-18; only on lower-rated clips (settings judge.launch.on_video_max_score)
   show_s: 3.5         # seconds on screen from the start (never the whole clip)
   # Two-tone lines (line 1, line 2), one palette per clip picked from the title so the feed varies. Mostly white + one accent.
   palettes:

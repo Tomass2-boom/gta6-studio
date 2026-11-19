@@ -193,7 +193,7 @@ Style: Cap,{cap['font']},{cap['size']},{ass_color(cap['color'])},{ass_color(cap[
 Style: Box,{cap['font']},20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1
 """
     events = []
-    if layout == "C" and title:
+    if layout == "C" and title and style["layout_c"]["title_box"].get("enabled", True):
         tb = style["layout_c"]["title_box"]
         text = title.upper() if tb["uppercase"] else title
         if cap.get("mask_profanity"):

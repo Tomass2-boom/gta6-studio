@@ -131,13 +131,38 @@ def _render_one(con, mid: int, lg, force_layout: str | None = None):
     if not words or words[0]["start"] > a + 2 or words[-1]["end"] < b - 2:
         words = transcribe(src["path"], a, b)["words"]
         db.update(con, mid, words=words)
+    # Same source already transcribed well (e.g. a duplicate or remake of a cut)? Reuse its accurately timed words
+    # when they cover this clip better than ours (clip 528: its own run lost most words, 334's were complete).
+    inside = lambda ws: [x for x in ws if a - 0.05 <= x["start"] and x["end"] <= b + 0.05]
+    best = words
+    for o in con.execute("SELECT id, words FROM moments WHERE source_id=? AND id != ? AND words IS NOT NULL",
+                         (m["source_id"], mid)):
+        try:
+            ow = json.loads(o["words"])
+        except ValueError:
+            continue
+        if len(inside(ow)) > 1.2 * len(inside(best)):
+            best = ow
+    if best is not words:
+        lg.info("moment %d: reusing better word timing from another cut of the same source", mid)
+        words = best
+        db.update(con, mid, words=words)
+    if m["transcript"]:
+        from .transcribe.whisper import fill_missing
+        filled = fill_missing(words, json.loads(m["transcript"]), a, b)
+        if len(filled) != len(words):
+            lg.info("moment %d: filled caption gaps from the transcript (%d -> %d words)", mid, len(words), len(filled))
+            words = filled
+            db.update(con, mid, words=words)
     kw = json.loads(m["keywords"]) if m["keywords"] else None
     if kw is None:
         kw = pick_keywords(" ".join(w["word"] for w in words if a <= w["start"] <= b))
         db.update(con, mid, keywords=kw)
     from .judge.llm import video_title
-    path, lay, note = render(src, a, b, words, kw, video_title(m["title"], m["score"]), f"{src['id']}_{int(a)}",
-                             force_layout)
+    name = f"{src['id']}_{int(a)}"
+    if con.execute("SELECT 1 FROM moments WHERE id != ? AND clip_path LIKE ?", (mid, f"%/{name}.mp4")).fetchone():
+        name += f"_m{mid}"      # a duplicate of the same cut must never overwrite another moment's file (clip 334 / 528)
+    path, lay, note = render(src, a, b, words, kw, video_title(m["title"], m["score"]), name, force_layout)
     db.update(con, mid, state="rendered", clip_path=path, layout=lay)
     lg.info("moment %d rendered, layout %s (%s): %s", mid, lay, note, path)
     return path

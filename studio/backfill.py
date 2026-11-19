@@ -15,6 +15,7 @@ from pathlib import Path
 from . import db
 from .config import DATA, load
 from .detect.chat import ChatDetector
+from .ingest import game as gta6
 from .ingest import live as vid
 
 
@@ -103,6 +104,9 @@ def fetch(s: dict, a: float, b: float, out: Path, quality: str, min_len: float) 
 def _fetch(s: dict, a: float, b: float, out: Path, quality: str, min_len: float) -> float:
     """Cut [a, b] (wall clock) out of the VOD into out.mp4; return its duration."""
     out.parent.mkdir(parents=True, exist_ok=True)
+    # A broken leftover from an earlier failed try (261-byte stubs, Jelly 2026-11-19) makes yt-dlp say "already
+    # downloaded" and skip: every retry then fails with "VOD gave only 0s". Always start clean.
+    out.unlink(missing_ok=True)
     off, n = max(0.0, a - s["t0"]), b - a
     if s["platform"] == "youtube":
         h = load("settings").get("ingest", {}).get("max_height", 1080)
@@ -137,16 +141,20 @@ def run(since: str, until: str | None, channels: list[str] | None, top: int | No
         if channels and ch not in channels and e["name"].lower() not in channels:
             continue
         done = done_ranges(con, e["platform"], ch)
-        n = 0
+        n, skipped = 0, {}
         for g in spike_groups(ch, e["platform"], t_since, t_until, L):
             if any(abs(g["first"] - d) < L["max_window_s"] for d, _ in done):
+                continue
+            ok, game = gta6.is_gta6_at(e["platform"], ch, g["first"])
+            if not ok:   # user 2026-11-19: only clips of streamers actually playing GTA 6
+                skipped[game] = skipped.get(game, 0) + 1
                 continue
             # the stream this moment belongs to: the latest one that started before it
             ss = [s for s in by.get(ch, []) if s["t0"] <= g["first"]]
             s = max(ss, key=lambda s: s["t0"]) if ss else None
             jobs.append((max(sp.strength for sp in g["spikes"]), ch, e, g, s))
             n += 1
-        lg.info("%s: %d new moments", ch, n)
+        lg.info("%s: %d new moments%s", ch, n, f" (skipped, not GTA 6: {skipped})" if skipped else "")
     jobs.sort(key=lambda j: -j[0])
     if top:
         jobs = jobs[:top]

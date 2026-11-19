@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 
 from .config import DATA
 from . import backfill as B
+from .ingest import game as G
 
 GQL = "https://gql.twitch.tv/gql"
 CID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
@@ -228,14 +229,25 @@ def _recover_one(ch: str, platform: str, by: dict, a: float, b: float, lg) -> tu
                     continue
                 total += _write(ch, platform, max(x, v["t0"]), min(y, v["t1"]), youtube_replay(v["id"]), lg)
         return total, pending
-    for x, y in hs:   # twitch
-        ss = [s for s in by.get(ch, []) if s["t0"] <= y and s.get("vod")]
-        if not ss:
-            continue
-        s = max(ss, key=lambda s: s["t0"])
-        x = max(x, s["t0"])
-        vod = s["vod"].rstrip("/").rsplit("/", 1)[1]
-        total += _write(ch, platform, x, y, twitch_replay(vod, x - s["t0"], y - s["t0"]), lg)
+    # twitch: ask Twitch which replay covers the hole. vods.jsonl alone fails after a Mac sleep: a stream that
+    # (re)started while vodwatch slept is missing, and asking an ended replay past its end = "service error".
+    vods = G.twitch_vods(ch)
+    known = {str(s.get("vod", "")).rstrip("/").rsplit("/", 1)[-1] for s in by.get(ch, [])}
+    for v in vods:
+        if v["id"] not in known and any(v["t0"] < y and x < v["t1"] for x, y in hs):
+            with open(DATA / "vods.jsonl", "a") as f:   # so backfill can fetch the video for these moments
+                f.write(json.dumps({"seen": iso(time.time()), "platform": "twitch", "channel": ch, "start": v["start"],
+                                    "game": v["game"], "vod": f"https://www.twitch.tv/videos/{v['id']}",
+                                    "muted": v["muted"], "from": "fillgaps"}) + "\n")
+            known.add(v["id"])
+    for x, y in hs:
+        cover = [v for v in vods if v["t0"] < y and x < v["t1"]]
+        if not cover:
+            lg.info("%s (twitch): no replay covers %s-%s (offline then, or the replay is not saved)",
+                    ch, f"{datetime.fromtimestamp(x):%H:%M}", f"{datetime.fromtimestamp(y):%H:%M}")
+        for v in cover:
+            a, b = max(x, v["t0"]), min(y, v["t1"])
+            total += _write(ch, platform, a, b, twitch_replay(v["id"], a - v["t0"], b - v["t0"]), lg)
     return total, False
 
 

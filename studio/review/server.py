@@ -68,7 +68,7 @@ def clip_list():
     out = []
     for c in clips.list_clips():
         out.append({k: c[k] for k in ("id", "name", "title", "streamer", "platform", "score", "grade",
-                                      "posted", "mtime", "state")})
+                                      "posted", "mtime", "state", "j_start", "j_end", "remade", "unrated")})
     return ok(clips=out)
 
 
@@ -119,6 +119,40 @@ def clip_finder(mid):
         return err("clip file not found", 404)
     subprocess.run(["open", "-R", c["clip_path"]])
     return ok()
+
+
+PHONEDROP = Path("/Applications/PhoneDrop.app")
+
+
+def _phone_plugged_in() -> bool | None:
+    """True/False from `adb devices`; None if adb is not installed."""
+    import shutil
+    adb = shutil.which("adb") or next((p for p in ("/opt/homebrew/bin/adb", "/usr/local/bin/adb")
+                                       if Path(p).exists()), None)
+    if not adb:
+        return None
+    try:
+        out = subprocess.run([adb, "devices"], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return any(line.endswith("\tdevice") for line in out.splitlines()[1:])
+
+
+@app.post("/api/clips/<int:mid>/phone")
+def clip_phone(mid):
+    """Hands the clip to PhoneDrop, exactly like dragging it onto the phone there, so it lands in
+    PhoneDrop's history and can be resent to the next phone."""
+    from urllib.parse import quote
+    c = clips.get(db.connect(), mid)
+    if not c or not c["exists"]:
+        return err("clip file not found", 404)
+    if not PHONEDROP.exists():
+        return err("PhoneDrop is not installed in Applications.")
+    # -g: PhoneDrop works in the background; it only comes forward to ask about a duplicate.
+    r = subprocess.run(["open", "-g", "phonedrop://send?path=" + quote(c["clip_path"], safe="/")])
+    if r.returncode != 0:
+        return err("Could not reach PhoneDrop. Open it once and try again.")
+    return ok(plugged=_phone_plugged_in())
 
 
 @app.post("/api/clips/<int:mid>/rerender")

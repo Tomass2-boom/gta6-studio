@@ -21,6 +21,7 @@ from .config import DATA, load
 from .detect import signals
 from .detect.chat import ChatDetector
 from .detect.loud import LoudDetector
+from .ingest import game as gta6
 from .ingest import live as vid
 
 
@@ -127,6 +128,10 @@ class Live:
     # ---- video -> moment ------------------------------------------------
     def make_moment(self, ch, p, entry):
         e, L = self.chans[ch], self.L
+        ok, game = gta6.is_gta6_live(e["platform"], ch)
+        if not ok:   # user 2026-11-19: only clip streamers who are actually playing GTA 6
+            self.lg.info("%s: not GTA 6 right now (%s): spike skipped", ch, game)
+            return
         con = db.connect()
         first, last = p["first"], p["last"]
         spikes = p["spikes"] + entry["extra"]
